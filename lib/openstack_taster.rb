@@ -184,7 +184,7 @@ class OpenStackTaster
       end
 
       unless volume_attach?(instance, volume)
-        error_log("Volume '#{volume.name}' failed to attach. Creating image...", true)
+        error_log(instance.name, "Volume '#{volume.name}' failed to attach. Creating image...", true)
         create_image(instance)
         return false # Returns from test_volumes
       end
