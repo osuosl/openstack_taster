@@ -1,0 +1,5 @@
+role : external
+  
+  distro:
+    debian:
+      user: debian
