@@ -3,7 +3,7 @@ control "internal-security-1.0" do
   title "Tester for Openstack security rules."
   desc "put description here"
 
-  username = 'codysseus'
+  username = 'debian'
 
   describe sshd_config do
     its('PermitRootLogin') { should eq 'no' }
@@ -16,14 +16,9 @@ control "internal-security-1.0" do
     its('stdout') { should match (/[1]/) }
   end
 
-  describe port(22) do
-    it { should be_listening }
-    its('processes') { should include 'sshd' }
-  end
-
   describe command(
     'egrep "root|wheel|sudo" /etc/group | grep ' + username +
-    ' || grep -r "' + username + '\s*ALL=(ALL)" /etc/sudoers*'
+    ' || sudo grep -r "' + username + '\s*ALL=(ALL[:ALL]*)" /etc/sudoers*'
   ) do
     its('stdout') { should match (username) }
   end
@@ -33,7 +28,7 @@ control "internal-security-1.0" do
     'PasswordAuthentication'
   ].each do |setting|
     describe command('sudo sshd -T | egrep -i '+setting) do
-      its('stdout') { should match( /#{setting} no/ ) }
+      its('stdout') { should match( /#{setting} no/i ) }
     end
   end
 end
