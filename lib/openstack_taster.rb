@@ -14,12 +14,13 @@ class OpenStackTaster
 
   VOLUME_TEST_FILE_NAME = 'info'
   VOLUME_TEST_FILE_CONTENTS = nil # Contents would be something like 'test-vol-1 on openpower8.osuosl.bak'
-  TIMEOUT_INSTANCE_CREATE = 20
+  TIMEOUT_INSTANCE_CREATE = 30
   TIMEOUT_VOLUME_ATTACH = 10
   TIMEOUT_VOLUME_PERSIST = 20
   TIMEOUT_INSTANCE_TO_BE_CREATED = 20
   TIMEOUT_INSTANCE_STARTUP = 30
   TIMEOUT_SSH_RETRY = 15
+  TIMEOUT_INSTANCE_DESTROY = 20
 
   TIME_SLUG_FORMAT = '%Y%m%d_%H%M%S'
   SAFE_IMAGE_NAMES = [ # FIXME: Remove hard coding
@@ -144,6 +145,8 @@ class OpenStackTaster
     if instance
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
+      error_log(instance.name, "Sleeping #{TIMEOUT_INSTANCE_DESTROY} seconds for instance to be destroyed...", true)
+      sleep TIMEOUT_INSTANCE_DESTROY
     end
   end
 
@@ -184,7 +187,7 @@ class OpenStackTaster
       end
 
       unless volume_attach?(instance, volume)
-        error_log(instance.name, "Volume '#{volume.name}' failed to attach. Creating image...", true)
+        error_log("Volume '#{volume.name}' failed to attach. Creating image...", true)
         create_image(instance)
         return false # Returns from test_volumes
       end
@@ -245,6 +248,7 @@ class OpenStackTaster
     end
 
     error_log(instance.name, "Attaching volume '#{volume.name}' (#{volume.id})...", true)
+
     @compute_service.attach_volume(volume.id, instance.id, nil)
     instance.wait_for(TIMEOUT_VOLUME_ATTACH, &volume_attached)
 
@@ -283,29 +287,62 @@ class OpenStackTaster
       ["sudo umount #{mount}",                     '']
     ]
 
+=begin
+
+    error_log(instance.name, 'Installing ppc64-diag...', true)
+
+    case username
+    when 'debian'
+      puts ('debian')
+      apt_package 'ppc64-diag' do
+        default_release 'testing',
+        options '-y'
+      end
+    when 'opensuse'
+      puts ('opensuse')
+      zypper_package 'ppc64-diag' do
+        options '-y'
+      end
+    when 'ubuntu'
+      puts ('ubuntu')
+      apt_package 'ppc64-diag' do
+        options '-y'
+      end
+    else
+      puts ('fedora/centos')
+      yum_package 'ppc64-diag' do
+        options '-y'
+      end
+    end
+
     error_log(instance.name, "Mounting volume '#{volume.name}' (#{volume.id})...", true)
+
+=end
 
     error_log(instance.name, 'Adding ppc64-diag package', true)
     package = ''
-    if instance.flavor_ref == 'debian'
+    if username == 'debian'
+      puts('debian')
       pkg_commands = [
-        ['sudo apt-get update',              ''],
-        ['sudo apt-get install ppc64-diag', nil]
+        ['sudo apt-get update -y &&
+          sudo apt-get install -y -t unstable ppc64-diag', nil]
       ]
-    elsif instance.flavor_ref == 'opensuse'
+    elsif username == 'opensuse'
+      puts('opensuse')
       pkg_commands = [
-        ['sudo zypper update',              ''],
-        ['sudo zypper install ppc64-diag', nil]
+        ['sudo zypper -n update',             nil],
+        ['sudo zypper -n install ppc64-diag', nil]
       ]
-    elsif instance.flavor_ref == 'ubuntu'
+    elsif username == 'ubuntu'
+      puts('ubuntu')
       pkg_commands = [
-        ['sudo apt-get update',              ''],
-        ['sudo apt-get install ppc64-diag', nil]
+        ['sudo apt-get update -y',             nil],
+        ['sudo apt-get install -y ppc64-diag', nil]
       ]
     else 
+      puts('fedora/centos')
       pkg_commands = [
-        ['sudo yum update',              ''],
-        ['sudo yum install ppc64-diag', nil]
+        ['sudo yum install -y ppc64-diag', nil]
       ]
     end
 
@@ -313,11 +350,11 @@ class OpenStackTaster
       pkg_commands.each do |command, expected|
         result = ssh.exec!(command).chomp
         if expected.nil?
-          error_log(instance.name, "#{pkg_command} yielded '#{result}'")
+          error_log(instance.name, "#{command} yielded '#{result}'", true)
         elsif result != expected
           error_log(
             instance.name,
-            "Failure while running '#{pkg_command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
+            "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
             true
           )
           return false
@@ -330,7 +367,7 @@ class OpenStackTaster
       commands.each do |command, expected|
         result = ssh.exec!(command).chomp
         if expected.nil?
-          error_log(instance.name, "#{command} yielded '#{result}'")
+          error_log(instance.name, "#{command} yielded '#{result}'", true)
         elsif result != expected
           error_log(
             instance.name,
