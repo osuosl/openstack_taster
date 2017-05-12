@@ -1,0 +1,7 @@
+name: openpower_security
+title: OpenPower Security Test Suite
+maintainer: OSU Open Source Lab
+copyright: Oregon State University
+license: Apache License, Version 2.0
+summary: Verify that an image has correctly configured security settings. 
+version: 1.0.0

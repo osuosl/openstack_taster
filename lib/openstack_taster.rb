@@ -5,6 +5,7 @@ require 'date'
 require 'excon'
 require 'net/ssh'
 require 'pry'
+require 'inspec'
 
 class OpenStackTaster
   INSTANCE_FLAVOR_NAME = 'm1.small'
@@ -131,6 +132,8 @@ class OpenStackTaster
 
     ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
 
+    security_test(instance, distro_user_name, ssh_logger)
+
     return test_volumes(instance, distro_user_name, ssh_logger)
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
@@ -145,6 +148,16 @@ class OpenStackTaster
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
     end
+  end
+
+  def security_test(instance, username, ssh_logger)
+    opts = {}
+    opts[:logger] = Logger.new(STDOUT)
+    opts[:logger].level = 'info'
+
+    runner = Inspec::Runner.new(opts)
+    runner.add_tests('tester root dir' + 'tests')
+    runner.run
   end
 
   def error_log(filename, message, dup_stdout = false)
