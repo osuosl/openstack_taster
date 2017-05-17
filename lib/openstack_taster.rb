@@ -131,6 +131,7 @@ class OpenStackTaster
     error_log(instance.name, "\nTesting for instance '#{instance.id}'.", true)
 
     ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
+    #binding.pry
 
     security_test(instance, distro_user_name, ssh_logger)
 
@@ -151,13 +152,22 @@ class OpenStackTaster
   end
 
   def security_test(instance, username, ssh_logger)
-    opts = {}
+    opts = {
+          "backend" => "ssh",
+          # pass-in sudo config from kitchen verifier
+          "host" => instance.addresses["public"][0]["addr"],
+          "port" => 22,
+          "user" => username,
+          "keys_only" => true,
+          "key_files" => @ssh_private_key
+        }
     opts[:logger] = Logger.new(STDOUT)
-    opts[:logger].level = 'info'
+    opts[:logger].level = 'error'
 
     runner = Inspec::Runner.new(opts)
-    runner.add_tests('tester root dir' + 'tests')
+    runner.add_target(File.dirname(__FILE__) + '/../tests')
     runner.run
+
   end
 
   def error_log(filename, message, dup_stdout = false)
