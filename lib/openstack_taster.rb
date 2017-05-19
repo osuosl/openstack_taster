@@ -275,6 +275,7 @@ class OpenStackTaster
     vdev = @volume_service.volumes.find_by_id(volume.id)
       .attachments.first['device']
     vdev << '1'
+    endian = instance.name.downcase.slice(-2, 2)
 
     log_partitions(instance, username, ssh_logger)
 
@@ -322,11 +323,25 @@ class OpenStackTaster
     error_log(instance.name, 'Adding ppc64-diag package', true)
     package = ''
     if username == 'debian'
-      puts('debian')
-      pkg_commands = [
-        ['sudo apt-get update -y &&
-          sudo apt-get install -y -t unstable ppc64-diag', nil]
-      ]
+      if endian == 'be'
+        puts('warning: debian BE installs UNSTABLE ppc64-diag, can take up to 5 minutes.')
+        pkg_commands = [
+          ['sudo su -', ''],
+          ['echo "deb http://debian.osuosl.org/debian unstable main" >> /etc/apt/sources.list', ''],
+          ['export DEBIAN_FRONTEND=noninteractive', ''],
+          ['export APT_LISTCHANGES_FRONTEND=none', ''],
+          ['apt-get update && yes | apt-get install -y -qq ppc64-diag', nil],
+          ['unset APT_LISTCHANGES_FRONTEND', ''],
+          ['unset DEBIAN_FRONTEND', '']
+        ]
+      else
+        puts('debian LE')
+        pkg_commands = [
+          ['sudo su -', ''],
+          ['echo "deb http://debian.osuosl.org/debian stretch main" >> /etc/apt/sources.list', ''],
+          ['apt-get update && apt-get install -yq ppc64-diag', nil]
+        ]
+      end
     elsif username == 'opensuse'
       puts('opensuse')
       pkg_commands = [
