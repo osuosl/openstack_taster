@@ -131,7 +131,6 @@ class OpenStackTaster
     error_log(instance.name, "\nTesting for instance '#{instance.id}'.", true)
 
     ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
-    #binding.pry
 
     security_test(instance, distro_user_name, ssh_logger)
 

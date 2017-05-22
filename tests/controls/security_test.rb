@@ -2,8 +2,8 @@ control "internal-security-1.0" do
   impact 1.0
   title "Tester for Openstack security rules."
   desc "put description here"
-
-  username = 'debian'
+  
+  username = user.username
 
   describe sshd_config do
     its('PermitRootLogin') { should eq 'no' }
