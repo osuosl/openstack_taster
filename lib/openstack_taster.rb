@@ -132,7 +132,9 @@ class OpenStackTaster
 
     ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
 
-    security_test(instance, distro_user_name, ssh_logger)
+    if not security_test(instance, distro_user_name)
+      return false
+    end
 
     return test_volumes(instance, distro_user_name, ssh_logger)
   rescue Fog::Errors::TimeoutError
@@ -150,11 +152,11 @@ class OpenStackTaster
     end
   end
 
-  def security_test(instance, username, ssh_logger)
+  def security_test(instance, username)
     opts = {
           "backend" => "ssh",
           # pass-in sudo config from kitchen verifier
-          "host" => instance.addresses["public"][0]["addr"],
+          "host" => instance.addresses["public"].first["addr"],
           "port" => 22,
           "user" => username,
           "keys_only" => true,
@@ -166,7 +168,11 @@ class OpenStackTaster
     runner = Inspec::Runner.new(opts)
     runner.add_target(File.dirname(__FILE__) + '/../tests')
     runner.run
-
+    if runner.report[:controls].any?{|test| test[:status] == "failed"}
+      return false
+    else
+      return true
+    end
   end
 
   def error_log(filename, message, dup_stdout = false)
