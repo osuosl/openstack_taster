@@ -165,9 +165,28 @@ class OpenStackTaster
     opts[:logger] = Logger.new(STDOUT)
     opts[:logger].level = 'error'
 
-    runner = Inspec::Runner.new(opts)
-    runner.add_target(File.dirname(__FILE__) + '/../tests')
-    runner.run
+    tries = 0
+
+    begin
+      runner = Inspec::Runner.new(opts)
+      runner.add_target(File.dirname(__FILE__) + '/../tests')
+      runner.run
+    rescue RuntimeError => e
+      puts "Encountered error \"#{e.message}\" while testing the instance."
+      if tries < 3
+        tries += 1
+        puts "Initiating SSH attempt #{tries} in #{TIMEOUT_SSH_RETRY} seconds"
+        sleep TIMEOUT_SSH_RETRY
+        retry
+      end
+      error_log(instance.name, e.backtrace)
+      error_log(instance.name, e.message)
+      return true # TODO: Don't crash when connection refused
+    rescue Exception => e
+      puts "Encountered error \"#{e.message}\". Aborting test."
+      return true
+    end
+
     return runner.report[:controls].any?{|test| test[:status] == "failed"}
   end
 
