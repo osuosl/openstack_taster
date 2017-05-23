@@ -132,7 +132,7 @@ class OpenStackTaster
 
     ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
 
-    if not security_test(instance, distro_user_name)
+    if not_secure?(instance, distro_user_name)
       return false
     end
 
@@ -152,7 +152,7 @@ class OpenStackTaster
     end
   end
 
-  def security_test(instance, username)
+  def not_secure?(instance, username)
     opts = {
           "backend" => "ssh",
           # pass-in sudo config from kitchen verifier
@@ -168,11 +168,7 @@ class OpenStackTaster
     runner = Inspec::Runner.new(opts)
     runner.add_target(File.dirname(__FILE__) + '/../tests')
     runner.run
-    if runner.report[:controls].any?{|test| test[:status] == "failed"}
-      return false
-    else
-      return true
-    end
+    return runner.report[:controls].any?{|test| test[:status] == "failed"}
   end
 
   def error_log(filename, message, dup_stdout = false)
