@@ -6,14 +6,12 @@ control "internal-security-1.0" do
   username = user.username
 
   describe sshd_config do
-    its('PermitRootLogin') { should eq 'no' }
+    its('PermitRootLogin') { should cmp /(no|without-password|prohibit-password)/ }
     its('PasswordAuthentication') { should eq 'no' }
   end
 
-  # The brackets are needed because inspec is running the command, 
-  # so it shows up in addition to the ssd daemon
-  describe command('pgrep -f "[s]shd -D" | wc -w') do
-    its('stdout') { should match (/[1]/) }
+  describe processes('sshd') do
+    its('list.length') { should eq 1 } #Our version of inspec doesn't complain, but "list" should be changed to "entries"
   end
 
   describe command(
@@ -28,7 +26,7 @@ control "internal-security-1.0" do
     'PasswordAuthentication'
   ].each do |setting|
     describe command('sudo sshd -T | egrep -i '+setting) do
-      its('stdout') { should match( /#{setting} no/i ) }
+      its('stdout') { should match( /#{setting} (no|without-password|prohibit-password)/i ) }
     end
   end
 end
