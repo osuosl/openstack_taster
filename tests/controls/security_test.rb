@@ -6,27 +6,47 @@ control "internal-security-1.0" do
   username = user.username
 
   describe sshd_config do
-    its('PermitRootLogin') { should cmp /(no|without-password|prohibit-password)/ }
+    its('PermitRootLogin') { should eq 'no' }
     its('PasswordAuthentication') { should eq 'no' }
+    its('ChallengeResponseAuthentication') { should eq 'no' }
+    its('KbdInteractiveAuthentication') { should eq 'no' }
   end
 
+  describe 'running sshd config' do
+    let(:resource) { command('sudo sshd -T') }
+
+    it 'should not permit root login' do
+      expect(resource.stdout).to cmp /^PermitRootLogin no/i
+    end
+
+    it 'should not permit password authentication' do
+      expect(resource.stdout).to cmp /^PasswordAuthentication no/i
+    end
+
+    it 'should not permit challenge response authentication' do
+      expect(resource.stdout).to cmp /^ChallengeResponseAuthentication no/i
+    end
+    it 'should not permit keyboard interactive authentication' do
+      expect(resource.stdout).to cmp /^KbdInteractiveAuthentication no/i
+    end
+  end
+
+=begin
+  Our version of inspec does not give us a warning about the list matcher,
+  but in future versions of inspec this will be removed.
+  This tests the number of instances of sshd on the system.
+=end
   describe processes('sshd') do
-    its('list.length') { should eq 1 } #Our version of inspec doesn't complain, but "list" should be changed to "entries"
+    its('list.length') { should eq 1 } 
   end
 
-  describe command(
-    'egrep "root|wheel|sudo" /etc/group | grep ' + username +
-    ' || sudo grep -r "' + username + '\s*ALL=(ALL[:ALL]*)" /etc/sudoers*'
-  ) do
-    its('stdout') { should match (username) }
-  end
-
-  [
-    'PermitRootLogin',
-    'PasswordAuthentication'
-  ].each do |setting|
-    describe command('sudo sshd -T | egrep -i '+setting) do
-      its('stdout') { should match( /#{setting} (no|without-password|prohibit-password)/i ) }
+  describe.one do
+    describe user(username) do
+      its('groups') { should eq ['root', 'wheel', 'sudo'] }
+    end
+  
+    describe command('sudo grep -r "^\s*' + username + '\s*ALL=(ALL[:ALL]*)" /etc/sudoers*') do
+      its('stdout') { should match (username) }
     end
   end
 end
