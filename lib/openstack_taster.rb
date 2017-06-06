@@ -192,8 +192,8 @@ class OpenStackTaster
         sleep TIMEOUT_SSH_RETRY
         retry
       end
-      error_log(instance.logger, 'error', e.backtrace)
-      error_log(instance.logger, 'error', e.message)
+      error_log(instance.logger, 'error', e.backtrace, false, 'Inspec Runner')
+      error_log(instance.logger, 'error', e.message, false, 'Inspec Runner')
       return true # TODO: Don't crash when connection refused
     rescue Exception => e
       puts "Encountered error \"#{e.message}\". Aborting test."
