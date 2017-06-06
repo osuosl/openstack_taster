@@ -120,8 +120,6 @@ class OpenStackTaster
       true
     )
 
-    error_log( instance_logger, 'blah', 'asdasdas')
-
     instance = @compute_service.servers.create(
       name: instance_name,
       flavor_ref: @instance_flavor.id,
@@ -219,9 +217,9 @@ class OpenStackTaster
       logger.add(Logger.const_get(level.upcase), message, progname)
     rescue NameError
       puts
-      puts "\e[31mMake sure that you use the correct string for logging severity!\e[0m"
+      puts "\e[31m#{level} is not a severity. Make sure that you use the correct string for logging severity!\e[0m"
       puts
-      logger.error('Taster Source Code') { "Incorrect logging severity name. Defaulting to INFO." }
+      logger.error('Taster Source Code') { "#{level} is not a logging severity name. Defaulting to INFO." }
       logger.info(progname) { message }
     end
   end
