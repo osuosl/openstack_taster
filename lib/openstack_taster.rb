@@ -87,10 +87,15 @@ class OpenStackTaster
     end
 
     puts 'SUCCESSES >'
+
     successes.each { |image| puts "    #{image.name}" }
     puts 'FAILURES >'
     failures.each { |image| puts "    #{image.name}" }
     puts
+
+    File.open("#{@log_dir}/failures.log", 'w') do |f|
+      f.puts(failures.map(&:name))
+    end
   end
 
   def taste(image)
@@ -104,11 +109,18 @@ class OpenStackTaster
       distro_arch
     )
 
+    FileUtils.mkdir_p(@log_dir) unless Dir.exist?(@log_dir)
+
+    instance_logger = Logger.new("#{@log_dir}/#{instance_name}.log")
+  
     error_log(
-      instance_name,
+      instance_logger,
+      'info',
       "Tasting #{image.name} as '#{instance_name}' with username '#{distro_user_name}'.\nBuilding...",
       true
     )
+
+    error_log( instance_logger, 'blah', 'asdasdas')
 
     instance = @compute_service.servers.create(
       name: instance_name,
@@ -119,27 +131,32 @@ class OpenStackTaster
     )
 
     if instance.nil?
-      error_log(instance_name, 'Failed to create instance.', true)
+      error_log(instance_logger, 'error', 'Failed to create instance.', true)
       return false
+    end
+
+    instance.instance_variable_set('@logger', instance_logger)
+
+    def instance.logger
+      @logger
     end
 
     instance.wait_for(TIMEOUT_INSTANCE_TO_BE_CREATED) { ready? }
 
-    error_log(instance.name, "Sleeping #{TIMEOUT_INSTANCE_STARTUP} seconds for OS startup...", true)
+    error_log(instance.logger, 'info', "Sleeping #{TIMEOUT_INSTANCE_STARTUP} seconds for OS startup...", true)
     sleep TIMEOUT_INSTANCE_STARTUP
 
-    error_log(instance.name, "\nTesting for instance '#{instance.id}'.", true)
-
-    ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
+    error_log(instance.logger, 'info', "Testing for instance '#{instance.id}'.", true)
 
     if not_secure?(instance, distro_user_name)
+      error_log(instance.logger, 'warn', "Image failed security test suite")
       return false
     end
 
-    return test_volumes(instance, distro_user_name, ssh_logger)
+    return test_volumes(instance, distro_user_name)
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
-    error_log(instance.name, "Instance fault: #{instance.fault}")
+    error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
     return false
   rescue Interrupt
     puts "\nCaught interrupt"
@@ -155,15 +172,13 @@ class OpenStackTaster
   def not_secure?(instance, username)
     opts = {
           "backend" => "ssh",
-          # pass-in sudo config from kitchen verifier
           "host" => instance.addresses["public"].first["addr"],
           "port" => 22,
           "user" => username,
           "keys_only" => true,
-          "key_files" => @ssh_private_key
+          "key_files" => @ssh_private_key,
+          "logger" => instance.logger
         }
-    opts[:logger] = Logger.new(STDOUT)
-    opts[:logger].level = 'error'
 
     tries = 0
 
@@ -179,23 +194,35 @@ class OpenStackTaster
         sleep TIMEOUT_SSH_RETRY
         retry
       end
-      error_log(instance.name, e.backtrace)
-      error_log(instance.name, e.message)
+      error_log(instance.logger, 'error', e.backtrace)
+      error_log(instance.logger, 'error', e.message)
       return true # TODO: Don't crash when connection refused
     rescue Exception => e
       puts "Encountered error \"#{e.message}\". Aborting test."
       return true
     end
 
+    error_log( instance.logger, 'info',
+      "Inspec Test Results\n" +
+      runner.report[:controls].map do |test| 
+        "#{test[:status].upcase}: #{test[:code_desc]}\n#{test[:message]}"
+      end.join("\n")
+    )
+
     return runner.report[:controls].any?{|test| test[:status] == "failed"}
   end
 
-  def error_log(filename, message, dup_stdout = false)
+  def error_log(logger, level, message, dup_stdout = false, progname = nil)
     puts message if dup_stdout
 
-    FileUtils.mkdir_p(@log_dir) unless Dir.exist?(@log_dir)
-    File.open("#{@log_dir}/#{filename}.log", 'a') do |file|
-      file.puts(message)
+    begin
+      logger.add(Logger.const_get(level.upcase), message, progname)
+    rescue NameError
+      puts
+      puts "\e[31mMake sure that you use the correct string for logging severity!\e[0m"
+      puts
+      logger.error('Taster Source Code') { "Incorrect logging severity name. Defaulting to INFO." }
+      logger.info(progname) { message }
     end
   end
 
@@ -219,20 +246,20 @@ class OpenStackTaster
       .wait_for { status == 'active' }
   end
 
-  def test_volumes(instance, username, ssh_logger)
+  def test_volumes(instance, username)
     mount_failures = @volumes.reject do |volume|
       if volume.attachments.any?
-        error_log(instance.name, "Volume '#{volume.name}' is already in an attached state; skipping.", true)
+        error_log(instance.logger, 'info', "Volume '#{volume.name}' is already in an attached state; skipping.", true)
         next
       end
 
       unless volume_attach?(instance, volume)
-        error_log(instance.name, "Volume '#{volume.name}' failed to attach. Creating image...", true)
+        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach. Creating image...", true)
         create_image(instance)
         return false # Returns from test_volumes
       end
 
-      volume_mount_unmount?(instance, username, ssh_logger, volume)
+      volume_mount_unmount?(instance, username, volume)
     end
 
     detach_failures = @volumes.reject do |volume|
@@ -240,29 +267,31 @@ class OpenStackTaster
     end
 
     if mount_failures.empty? && detach_failures.empty?
-      error_log(instance.name, "\nEncountered 0 failures. Not creating image...", true)
+      error_log(instance.logger, 'info', "\nEncountered 0 failures. Not creating image...", true)
       true
     else
       error_log(
-        instance.name,
+        instance.logger,
+        'error',
         "\nEncountered #{mount_failures.count} mount failures and #{detach_failures.count} detach failures.",
         true
       )
-      error_log(instance.name, "\nEncountered failures. Creating image...", true)
+      error_log(instance.logger, 'error', "\nEncountered failures. Creating image...", true)
       create_image(instance)
       false
     end
   end
 
-  def with_ssh(instance, username, ssh_logger, &block)
+  def with_ssh(instance, username, &block)
     tries = 0
+    instance.logger.progname = 'SSH'
     begin
       Net::SSH.start(
         instance.addresses['public'].first['addr'],
         username,
         verbose: :info,
         paranoid: false,
-        logger: ssh_logger,
+        logger: instance.logger,
         keys: [@ssh_private_key],
         &block
       )
@@ -274,8 +303,8 @@ class OpenStackTaster
         sleep TIMEOUT_SSH_RETRY
         retry
       end
-      error_log(instance.name, e.backtrace)
-      error_log(instance.name, e.message)
+      error_log(instance.logger, 'error', e.backtrace, false, 'SSH')
+      error_log(instance.logger, 'error', e.message, false, 'SSH')
       exit 1 # TODO: Don't crash when connection refused
     end
   end
@@ -287,27 +316,27 @@ class OpenStackTaster
       end
     end
 
-    error_log(instance.name, "Attaching volume '#{volume.name}' (#{volume.id})...", true)
+    error_log(instance.logger, 'info', "Attaching volume '#{volume.name}' (#{volume.id})...", true)
     @compute_service.attach_volume(volume.id, instance.id, nil)
     instance.wait_for(TIMEOUT_VOLUME_ATTACH, &volume_attached)
 
-    error_log(instance.name, "Sleeping #{TIMEOUT_VOLUME_PERSIST} seconds for attachment persistance...", true)
+    error_log(instance.logger, 'info', "Sleeping #{TIMEOUT_VOLUME_PERSIST} seconds for attachment persistance...", true)
     sleep TIMEOUT_VOLUME_PERSIST
 
     return true if instance.instance_eval(&volume_attached)
 
-    error_log(instance.name, "Failed to attach '#{volume.name}': Volume was unexpectedly detached.", true)
+    error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume was unexpectedly detached.", true)
     false
   rescue Excon::Error => e
     puts 'Error attaching volume, check log for details.'
-    error_log(instance.name, e.message)
+    error_log(instance.logger, 'error', e.message)
     false
   rescue Fog::Errors::TimeoutError
-    error_log(instance.name, "Failed to attach '#{volume.name}': Operation timed out.", true)
+    error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Operation timed out.", true)
     false
   end
 
-  def volume_mount_unmount?(instance, username, ssh_logger, volume)
+  def volume_mount_unmount?(instance, username, volume)
     mount = INSTANCE_VOLUME_MOUNT_POINT
     file_name = VOLUME_TEST_FILE_NAME
     file_contents = VOLUME_TEST_FILE_CONTENTS
@@ -315,7 +344,7 @@ class OpenStackTaster
       .attachments.first['device']
     vdev << '1'
 
-    log_partitions(instance, username, ssh_logger)
+    log_partitions(instance, username)
 
     commands = [
       ["echo -e \"127.0.0.1\t$HOSTNAME\" | sudo tee -a /etc/hosts", nil], # to fix problems with sudo and DNS resolution
@@ -326,17 +355,18 @@ class OpenStackTaster
       ["sudo umount #{mount}",                     '']
     ]
 
-    error_log(instance.name, "Mounting volume '#{volume.name}' (#{volume.id})...", true)
+    error_log(instance.logger, 'info', "Mounting volume '#{volume.name}' (#{volume.id})...", true)
 
-    error_log(instance.name, 'Mounting from inside the instance...', true)
-    with_ssh(instance, username, ssh_logger) do |ssh|
+    error_log(instance.logger, 'info', 'Mounting from inside the instance...', true)
+    with_ssh(instance, username) do |ssh|
       commands.each do |command, expected|
         result = ssh.exec!(command).chomp
         if expected.nil?
-          error_log(instance.name, "#{command} yielded '#{result}'")
+          error_log(instance.logger, 'info', "#{command} yielded '#{result}'")
         elsif result != expected
           error_log(
-            instance.name,
+            instance.logger,
+            'error',
             "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
             true
           )
@@ -347,7 +377,7 @@ class OpenStackTaster
     true
   end
 
-  def log_partitions(instance, username, ssh_logger)
+  def log_partitions(instance, username)
     puts 'Logging partition list and dmesg...'
 
     record_info_commands = [
@@ -355,20 +385,20 @@ class OpenStackTaster
       'dmesg | tail -n 20'
     ]
 
-    with_ssh(instance, username, ssh_logger) do |ssh|
+    with_ssh(instance, username) do |ssh|
       record_info_commands.each do |command|
         result = ssh.exec!(command)
-        error_log(instance.name, "Ran '#{command}' and got '#{result}'")
+        error_log(instance.logger, 'info', "Ran '#{command}' and got '#{result}'")
       end
     end
   end
 
   def volume_detach?(instance, volume)
-    error_log(instance.name, "Detaching #{volume.name}.", true)
+    error_log(instance.logger, 'info', "Detaching #{volume.name}.", true)
     instance.detach_volume(volume.id)
   rescue Excon::Error => e
     puts 'Failed to detach. check log for details.'
-    error_log(instance.name, e.message)
+    error_log(instance.logger, 'error', e.message)
     false
   end
 end
