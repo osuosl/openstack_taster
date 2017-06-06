@@ -7,7 +7,7 @@ Tests a complete OpenStack deployment for various functionalities
 
 * **OS_USERNAME** -- Username to authenticate to the OpenStack API
 * **OS_PASSWORD** -- plain text password for the user account
-* **OS_TENANT_NAME** admin -- the "project" or tenant under which the test
+* **OS_TENANT_NAME** The "project" or tenant under which the test
   instances will be created. Make sure you have permissions and resources to
   create m1.small instances and one single free public ip.
 * **OS_AUTH_URL** -- URL where OpenStack API lives. something like https://openpower-openstack.testing.osuosl.org:5000/v2.0
@@ -25,7 +25,7 @@ Tests a complete OpenStack deployment for various functionalities
 
    ``` console
    $ gem build openstack_taster.gemspec
-   $ gem install openstack_taster*.gem
+   $ gem install openstack_taster-*.gem
    ```
-3. Run, from the root of this repo, ``ruby -Ilib bin/openstack_taster``.
+3. Now you can run ``openstack_taster``.
 This will create, test, and destroy instances using all the images and volumes available to the user and log everything inside logs/${FQDN of Openstack controller you are testing on}. Each run will create a directory named after the session id and inside that you will find a log file for each image that you are testing.
