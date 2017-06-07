@@ -1,7 +1,7 @@
-control "internal-security-1.0" do
+control "security-1.0" do
   impact 1.0
-  title "Tester for Openstack security rules."
-  desc "put description here"
+  title "Openstack Image Security Test"
+  desc "Tests the security of images used for Openstack."
 
   username = user.username
 
