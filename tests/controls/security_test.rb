@@ -33,7 +33,7 @@ control "security-1.0" do
 
 =begin
   Our version of inspec does not give us a warning about the list matcher,
-  but in future versions of inspec this will be removed.
+  but in version 2.0 of inspec this will be removed.
   This tests the number of instances of sshd on the system.
 =end
   describe processes('sshd') do
@@ -42,11 +42,11 @@ control "security-1.0" do
 
   describe.one do
     describe user(username) do
-      its('groups') { should eq ['root', 'wheel', 'sudo'] }
+      its('groups') { should eq %w(root wheel sudo) }
     end
   
-    describe command('sudo grep -r "^\s*' + username + '\s*ALL=(ALL[:ALL]*)" /etc/sudoers*') do
-      its('stdout') { should match (username) }
+    describe command('sudo -U ' + username + ' -l') do
+      its('stdout') { should cmp /\(ALL\) (NO)*(PASSWD)*: ALL/ }
     end
   end
 end
