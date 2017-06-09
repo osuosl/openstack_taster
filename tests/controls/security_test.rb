@@ -46,7 +46,7 @@ control "security-1.0" do
     end
   
     describe command('sudo -U ' + username + ' -l') do
-      its('stdout') { should cmp /\(ALL\) (NO)*(PASSWD)*: ALL/ }
+      its('stdout') { should cmp /\(ALL\) ((NO)*PASSWD)*: ALL/ }
     end
   end
 end
