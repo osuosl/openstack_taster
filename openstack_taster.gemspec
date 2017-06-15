@@ -13,5 +13,9 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'fog', '~> 1.40.0'
   spec.add_runtime_dependency 'net-ssh', '~> 3.2.0'
   spec.executables = 'openstack_taster'
-  spec.files       = Dir.glob("{lib,test}/**/*")
+  spec.files       = ['lib/openstack_taster.rb',
+                      'bin/openstack_taster',
+                      'tests/inspec.yml',
+                      'tests/controls/security_test.rb'
+                     ]
 end
