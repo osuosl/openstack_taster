@@ -52,7 +52,7 @@ class OpenStackTaster
       .select { |network| network.name == INSTANCE_NETWORK_NAME }.first
   end
 
-  def taste(image_name)
+  def taste(image_name, settings)
     image  = @compute_service.images # FIXME: Images over compute service is deprecated
       .select { |i| i.name == image_name }.first
 
@@ -107,15 +107,13 @@ class OpenStackTaster
 
     error_log(instance.logger, 'info', "Testing for instance '#{instance.id}'.", true)
 
-    return test(instance, distro_user_name) 
+    return test(instance, distro_user_name, settings) 
   end
 
-  def test(instance, distro_user_name)
-    #binding.pry
-    return (
-      (test_security(instance, distro_user_name) if $test_security) &&
-      (test_volumes(instance, distro_user_name) if $test_volumes)
-    )
+  def test(instance, distro_user_name, settings)
+    return false unless test_security(instance, distro_user_name) if settings[:security]
+    return false unless test_volumes(instance, distro_user_name) if settings[:volumes]
+    return true
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")

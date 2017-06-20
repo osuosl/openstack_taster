@@ -1,8 +1,10 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-$test_volumes = true
-$test_security = true
+settings = {
+  'volumes': true,
+  'security': true
+}
 
 def print_usage(exit_val = 0)
     puts "Usage: openstack_taster <test_suite> <image_name>"
@@ -30,9 +32,9 @@ if ARGV.length == 1
 elsif ARGV.length == 2
   case ARGV[0]
   when 'volume'
-    $test_security = false
+    settings[:security] = false
   when 'security'
-    $test_volumes = false
+    settings[:volumes] = false
   when 'all'
   else
     puts "#{ARGV[0]} is not a valid test suite!"
@@ -74,4 +76,4 @@ network = Fog::Network::OpenStack.new(OPENSTACK_CREDS)
 OpenStackTaster.new(
   compute, volume, image, network,
   SSH_KEYS, LOG_DIR
-).taste ARGV[1] 
+).taste(ARGV[1], settings)
