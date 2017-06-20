@@ -23,23 +23,6 @@ class OpenStackTaster
   TIMEOUT_SSH_RETRY = 15
 
   TIME_SLUG_FORMAT = '%Y%m%d_%H%M%S'
-  SAFE_IMAGE_NAMES = [ # FIXME: Remove hard coding
-    'OpenSUSE Leap 42.2 LE',
-    'Ubuntu 14.04 BE',
-    'Fedora 23 BE',
-    'Fedora 23 LE',
-    'Fedora 24 BE',
-    'Fedora 24 LE',
-    'Debian 8 LE',
-    'Debian 8 BE',
-    'CentOS 7.2 BE',
-    'Ubuntu 14.04 LE',
-    'Ubuntu 16.04 BE',
-    'Ubuntu 16.04 LE',
-    'Ubuntu 16.10 BE',
-    'Ubuntu 16.10 LE',
-    'CentOS 7.2 LE'
-  ].freeze
 
   def initialize(
     compute_service,
@@ -55,10 +38,6 @@ class OpenStackTaster
     @network_service = network_service
 
     @volumes = @volume_service.volumes
-    @images  = @compute_service.images # FIXME: Images over compute service is deprecated
-      .select { |image| SAFE_IMAGE_NAMES.include?(image.name) }.reverse
-
-    puts "Tasting with #{@images.count} images and #{@volumes.count} volumes."
 
     @ssh_keypair     = ssh_keys[:keypair]
     @ssh_private_key = ssh_keys[:private_key]
@@ -73,32 +52,10 @@ class OpenStackTaster
       .select { |network| network.name == INSTANCE_NETWORK_NAME }.first
   end
 
-  def taste_all
-    puts "Starting session #{@session_id}...\n\n"
-    successes = []
-    failures = []
+  def taste(image_name)
+    image  = @compute_service.images # FIXME: Images over compute service is deprecated
+      .select { |i| i.name == image_name }.first
 
-    @images.each do |image|
-      begin
-        (taste(image) ? successes : failures) << image
-      rescue Interrupt
-        break
-      end
-    end
-
-    puts 'SUCCESSES >'
-
-    successes.each { |image| puts "    #{image.name}" }
-    puts 'FAILURES >'
-    failures.each { |image| puts "    #{image.name}" }
-    puts
-
-    File.open("#{@log_dir}/failures.log", 'w') do |f|
-      f.puts(failures.map(&:name))
-    end
-  end
-
-  def taste(image)
     distro_user_name = image.name.downcase.gsub(/[^a-z].*$/, '') # truncate downcased name at first non-alpha char
     distro_arch = image.name.downcase.slice(-2, 2)
     instance_name = format(
