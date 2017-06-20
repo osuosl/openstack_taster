@@ -56,6 +56,10 @@ class OpenStackTaster
     image  = @compute_service.images # FIXME: Images over compute service is deprecated
       .select { |i| i.name == image_name }.first
 
+    if image.nil?
+      abort("#{image_name} is not an available image.")
+    end
+
     distro_user_name = image.name.downcase.gsub(/[^a-z].*$/, '') # truncate downcased name at first non-alpha char
     distro_arch = image.name.downcase.slice(-2, 2)
     instance_name = format(
@@ -124,7 +128,7 @@ class OpenStackTaster
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
     end
-    return false
+    false
   end
 
   def test_security(instance, username)

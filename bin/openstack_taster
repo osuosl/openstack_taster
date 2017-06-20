@@ -1,7 +1,22 @@
 #!/usr/bin/env ruby
 
+def print_usage
+    puts "Usage: openstack_taster <image_name>"
+    puts "   or: openstack_taster <option>"
+    puts "Available arguments:"
+    puts "\t-h, --help\t Print"
+    exit(0)
+end
 # frozen_string_literal: true
-abort("Usage: openstack_taster <image_name>") if ARGV.length != 1
+print_usage if ARGV.length == 0
+
+if ARGV[0] =~ /^-/
+  if ARGV[0] =~ /^-(h|-help)$/
+    print_usage
+  else
+    print_usage
+  end
+end
 
 require 'fog/openstack'
 require 'openstack_taster'
