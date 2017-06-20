@@ -15,7 +15,7 @@ def print_usage(exit_val = 0)
     puts
     puts "Test Suites:"
     puts "\tall\t\tRuns all test suites."
-    puts "\tvolume\t\tRuns the volume test suite."
+    puts "\tvolumes\t\tRuns the volume test suite."
     puts "\tsecurity\tRuns the security test suite."
     exit(exit_val)
 end
@@ -31,7 +31,7 @@ if ARGV.length == 1
   end
 elsif ARGV.length == 2
   case ARGV[0]
-  when 'volume'
+  when 'volumes'
     settings[:security] = false
   when 'security'
     settings[:volumes] = false
