@@ -103,12 +103,14 @@ class OpenStackTaster
 
     error_log(instance.logger, 'info', "Testing for instance '#{instance.id}'.", true)
 
-    if not_secure?(instance, distro_user_name)
-      error_log(instance.logger, 'warn', "Image failed security test suite")
-      return false
-    end
+    return test(instance, distro_user_name) 
+  end
 
-    return test_volumes(instance, distro_user_name)
+  def test(instance, distro_user_name)
+      return (
+        test_security(instance, distro_user_name) &&
+        test_volumes(instance, distro_user_name)
+      )
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
@@ -122,9 +124,10 @@ class OpenStackTaster
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
     end
+    return false
   end
 
-  def not_secure?(instance, username)
+  def test_security(instance, username)
     opts = {
           "backend" => "ssh",
           "host" => instance.addresses["public"].first["addr"],
@@ -164,7 +167,11 @@ class OpenStackTaster
       end.join("\n")
     )
 
-    return runner.report[:controls].any?{|test| test[:status] == "failed"}
+    if runner.report[:controls].any?{|test| test[:status] == 'failed'}
+      error_log(instance.logger, 'warn', 'Image failed security test suite')
+      false
+    end
+    true
   end
 
   def error_log(logger, level, message, dup_stdout = false, context = nil)
