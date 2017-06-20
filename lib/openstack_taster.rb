@@ -5,6 +5,7 @@ require 'date'
 require 'excon'
 require 'net/ssh'
 require 'pry'
+require 'inspec'
 
 class OpenStackTaster
   INSTANCE_FLAVOR_NAME = 'm1.small'
@@ -131,6 +132,10 @@ class OpenStackTaster
 
     ssh_logger = Logger.new('logs/' + instance.name + '_ssh_log')
 
+    if not_secure?(instance, distro_user_name)
+      return false
+    end
+
     return test_volumes(instance, distro_user_name, ssh_logger)
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
@@ -145,6 +150,44 @@ class OpenStackTaster
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
     end
+  end
+
+  def not_secure?(instance, username)
+    opts = {
+          "backend" => "ssh",
+          # pass-in sudo config from kitchen verifier
+          "host" => instance.addresses["public"].first["addr"],
+          "port" => 22,
+          "user" => username,
+          "keys_only" => true,
+          "key_files" => @ssh_private_key
+        }
+    opts[:logger] = Logger.new(STDOUT)
+    opts[:logger].level = 'error'
+
+    tries = 0
+
+    begin
+      runner = Inspec::Runner.new(opts)
+      runner.add_target(File.dirname(__FILE__) + '/../tests')
+      runner.run
+    rescue RuntimeError => e
+      puts "Encountered error \"#{e.message}\" while testing the instance."
+      if tries < 3
+        tries += 1
+        puts "Initiating SSH attempt #{tries} in #{TIMEOUT_SSH_RETRY} seconds"
+        sleep TIMEOUT_SSH_RETRY
+        retry
+      end
+      error_log(instance.name, e.backtrace)
+      error_log(instance.name, e.message)
+      return true # TODO: Don't crash when connection refused
+    rescue Exception => e
+      puts "Encountered error \"#{e.message}\". Aborting test."
+      return true
+    end
+
+    return runner.report[:controls].any?{|test| test[:status] == "failed"}
   end
 
   def error_log(filename, message, dup_stdout = false)
