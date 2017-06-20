@@ -1,21 +1,46 @@
 #!/usr/bin/env ruby
-
-def print_usage
-    puts "Usage: openstack_taster <image_name>"
-    puts "   or: openstack_taster <option>"
-    puts "Available arguments:"
-    puts "\t-h, --help\t Print"
-    exit(0)
-end
 # frozen_string_literal: true
-print_usage if ARGV.length == 0
 
-if ARGV[0] =~ /^-/
-  if ARGV[0] =~ /^-(h|-help)$/
+$test_volumes = true
+$test_security = true
+
+def print_usage(exit_val = 0)
+    puts "Usage: openstack_taster <test_suite> <image_name>"
+    puts "   or: openstack_taster <option>"
+    puts
+    puts "Available arguments:"
+    puts "\t-h, --help\tPrint usage information"
+    puts
+    puts "Test Suites:"
+    puts "\tall\t\tRuns all test suites."
+    puts "\tvolume\t\tRuns the volume test suite."
+    puts "\tsecurity\tRuns the security test suite."
+    exit(exit_val)
+end
+
+if ARGV.length == 1
+  case ARGV[0]
+  when '-h', '--help'
     print_usage
   else
-    print_usage
+    puts "#{ARGV[0]} is not a valid flag!"
+    puts
+    print_usage 1
   end
+elsif ARGV.length == 2
+  case ARGV[0]
+  when 'volume'
+    $test_security = false
+  when 'security'
+    $test_volumes = false
+  when 'all'
+  else
+    puts "#{ARGV[0]} is not a valid test suite!"
+    puts
+    print_usage 1
+  end
+else
+  print_usage 1
 end
 
 require 'fog/openstack'
@@ -49,4 +74,4 @@ network = Fog::Network::OpenStack.new(OPENSTACK_CREDS)
 OpenStackTaster.new(
   compute, volume, image, network,
   SSH_KEYS, LOG_DIR
-).taste ARGV[0] 
+).taste ARGV[1] 

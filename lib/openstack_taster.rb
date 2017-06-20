@@ -111,10 +111,11 @@ class OpenStackTaster
   end
 
   def test(instance, distro_user_name)
-      return (
-        test_security(instance, distro_user_name) &&
-        test_volumes(instance, distro_user_name)
-      )
+    #binding.pry
+    return (
+      (test_security(instance, distro_user_name) if $test_security) &&
+      (test_volumes(instance, distro_user_name) if $test_volumes)
+    )
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
@@ -128,7 +129,7 @@ class OpenStackTaster
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
     end
-    false
+    return false
   end
 
   def test_security(instance, username)
