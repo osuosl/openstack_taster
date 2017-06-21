@@ -111,9 +111,10 @@ class OpenStackTaster
   end
 
   def test(instance, distro_user_name, settings)
-    return false unless test_security(instance, distro_user_name) if settings[:security]
-    return false unless test_volumes(instance, distro_user_name) if settings[:volumes]
-    return true
+    return_values = []
+    return_values.push test_security(instance, distro_user_name) if settings[:security]
+    return_values.push test_volumes(instance, distro_user_name) if settings[:volumes]
+    return return_values.include? false
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
