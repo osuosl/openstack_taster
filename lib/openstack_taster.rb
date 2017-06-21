@@ -210,17 +210,17 @@ class OpenStackTaster
     return runner.report[:controls].any?{|test| test[:status] == "failed"}
   end
 
-  def error_log(logger, level, message, dup_stdout = false, progname = nil)
+  def error_log(logger, level, message, dup_stdout = false, context = nil)
     puts message if dup_stdout
 
     begin
-      logger.add(Logger.const_get(level.upcase), message, progname)
+      logger.add(Logger.const_get(level.upcase), message, context)
     rescue NameError
       puts
       puts "\e[31m#{level} is not a severity. Make sure that you use the correct string for logging severity!\e[0m"
       puts
       logger.error('Taster Source Code') { "#{level} is not a logging severity name. Defaulting to INFO." }
-      logger.info(progname) { message }
+      logger.info(context) { message }
     end
   end
 
