@@ -4,4 +4,5 @@ source 'https://rubygems.org' do
   gem 'fog'
   gem 'net-ssh'
   gem 'inspec'
+  gem 'optparse'
 end

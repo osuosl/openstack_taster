@@ -1,48 +1,55 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-settings = {
-  'volumes': true,
-  'security': true
-}
+require 'optparse'
 
-def print_usage(exit_val = 0)
-    puts "Usage: openstack_taster <test_suite> <image_name>"
-    puts "   or: openstack_taster <option>"
-    puts
-    puts "Available arguments:"
-    puts "\t-h, --help\tPrint usage information"
-    puts
-    puts "Test Suites:"
-    puts "\tall\t\tRuns all test suites."
-    puts "\tvolumes\t\tRuns the volume test suite."
-    puts "\tsecurity\tRuns the security test suite."
-    exit(exit_val)
+suites = {
+  'security' => 'Runs the volume test suite', 
+  'volumes' => 'Runs the security test suite'
+}
+settings = {}
+
+ARGV << '-h' if ARGV.empty?
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: openstack_taster <test_suite> <image_name> <option>\n" + \
+                "   or: openstack_taster <test_suite>\n" + \
+                "   or: openstack_taster <option>"
+  opts.separator("")
+  opts.separator("Available Arguments:")
+  opts.on('-c', '--create-image', 'Create image upon test failure. Used when testing.') do
+    settings[:create] = true
+  end
+  opts.on('-h', '--help', 'Print usage information.') do
+    puts opts
+    exit
+  end
+  opts.separator("")
+  opts.separator("Test Suites:")
+  suites.each do |suite, desc|
+    opts.separator("    #{suite}\t\t#{desc}")
+  end
 end
 
-if ARGV.length == 1
-  case ARGV[0]
-  when '-h', '--help'
-    print_usage
+params = parser.parse!
+
+begin
+  case params.length
+  when 1
+    image_name = params[0]
+    suites.each_key { |suite| settings[suite.to_sym] = true }
+  when 2
+    raise "#{params[0]} is not a test suite!" if ! suites.include? params[0]
+    image_name = params[1]
+    settings[params[0].to_sym] = true
   else
-    puts "#{ARGV[0]} is not a valid flag!"
-    puts
-    print_usage 1
+    raise '"' + params.join(' ') + '" is not the correct format!'
   end
-elsif ARGV.length == 2
-  case ARGV[0]
-  when 'volumes'
-    settings[:security] = false
-  when 'security'
-    settings[:volumes] = false
-  when 'all'
-  else
-    puts "#{ARGV[0]} is not a valid test suite!"
-    puts
-    print_usage 1
-  end
-else
-  print_usage 1
+rescue Exception => e
+  puts e.message
+  puts
+  puts parser
+  exit(1)
 end
 
 require 'fog/openstack'
