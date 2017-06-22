@@ -107,14 +107,19 @@ class OpenStackTaster
 
     error_log(instance.logger, 'info', "Testing for instance '#{instance.id}'.", true)
 
-    return test(instance, distro_user_name, settings) 
+    return test(instance, distro_user_name, settings)
   end
 
   def test(instance, distro_user_name, settings)
     return_values = []
     return_values.push test_security(instance, distro_user_name) if settings[:security]
     return_values.push test_volumes(instance, distro_user_name) if settings[:volumes]
-    return return_values.include? false
+
+    if return_values.include?(false) && settings[:create]
+      error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)
+      create_image(instance) # Create image here since it is destroyed before scope returns to taste function
+    end
+    return !return_values.include?(false)
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
@@ -220,8 +225,7 @@ class OpenStackTaster
       end
 
       unless volume_attach?(instance, volume)
-        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach. Creating image...", true)
-        create_image(instance)
+        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
         return false # Returns from test_volumes
       end
 
@@ -233,7 +237,7 @@ class OpenStackTaster
     end
 
     if mount_failures.empty? && detach_failures.empty?
-      error_log(instance.logger, 'info', "\nEncountered 0 failures. Not creating image...", true)
+      error_log(instance.logger, 'info', "\nEncountered 0 failures.", true)
       true
     else
       error_log(
@@ -242,8 +246,7 @@ class OpenStackTaster
         "\nEncountered #{mount_failures.count} mount failures and #{detach_failures.count} detach failures.",
         true
       )
-      error_log(instance.logger, 'error', "\nEncountered failures. Creating image...", true)
-      create_image(instance)
+      error_log(instance.logger, 'error', "\nEncountered failures.", true)
       false
     end
   end
