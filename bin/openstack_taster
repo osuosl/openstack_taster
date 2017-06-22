@@ -31,7 +31,16 @@ parser = OptionParser.new do |opts|
   end
 end
 
-params = parser.parse!
+begin
+  params = parser.parse!
+rescue OptionParser::InvalidOption => io
+  puts io.message
+  puts parser
+  exit 1
+rescue Exception => e
+  puts "Argument parsing failed: #{e.message} \n #{e.backtrace}"
+  exit 1
+end
 
 begin
   case params.length
