@@ -4,8 +4,8 @@
 require 'optparse'
 
 suites = {
-  'security' => 'Runs the volume test suite', 
-  'volumes' => 'Runs the security test suite'
+  'security' => 'Runs the security test suite', 
+  'volumes' => 'Runs the volume test suite'
 }
 settings = {}
 
@@ -17,7 +17,7 @@ parser = OptionParser.new do |opts|
                 "   or: openstack_taster <option>"
   opts.separator("")
   opts.separator("Available Arguments:")
-  opts.on('-c', '--create-image', 'Create image upon test failure. Used when testing.') do
+  opts.on('-c', '--create-image', 'Create image upon test failure.') do
     settings[:create] = true
   end
   opts.on('-h', '--help', 'Print usage information.') do
