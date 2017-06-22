@@ -22,7 +22,7 @@ parser = OptionParser.new do |opts|
   end
   opts.on('-h', '--help', 'Print usage information.') do
     puts opts
-    exit
+    settings[:exit] = true
   end
   opts.separator("")
   opts.separator("Test Suites:")
@@ -38,9 +38,13 @@ rescue OptionParser::InvalidOption => io
   puts parser
   exit 1
 rescue Exception => e
-  puts "Argument parsing failed: #{e.message} \n #{e.backtrace}"
+  puts "Argument parsing failed:"
+  puts e.message
+  puts e.backtrace
   exit 1
 end
+
+exit if settings[:exit] # exit inside OptionParser causes problems.
 
 begin
   case params.length
