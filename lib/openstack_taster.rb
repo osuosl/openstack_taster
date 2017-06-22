@@ -112,11 +112,11 @@ class OpenStackTaster
     return_values.push taste_security(instance, distro_user_name) if settings[:security]
     return_values.push taste_volumes(instance, distro_user_name) if settings[:volumes]
 
-    if settings[:create] && return_values.include?(false)
+    if settings[:create] && !return_values.all?
       error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)
       create_image(instance) # Create image here since it is destroyed before scope returns to taste function
     end
-    return !return_values.include?(false)
+    return return_values.all?
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
