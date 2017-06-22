@@ -178,9 +178,9 @@ class OpenStackTaster
 
     if runner.report[:controls].any?{|test| test[:status] == 'failed'}
       error_log(instance.logger, 'warn', 'Image failed security test suite')
-      false
+      return false
     end
-    true
+    return true
   end
 
   def error_log(logger, level, message, dup_stdout = false, context = nil)
