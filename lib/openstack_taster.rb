@@ -52,13 +52,11 @@ class OpenStackTaster
       .select { |network| network.name == INSTANCE_NETWORK_NAME }.first
   end
 
-  def taste(image_name, settings)
-    image  = @compute_service.images # FIXME: Images over compute service is deprecated
+  def taste(image_name, settings) # FIXME: Reduce Percieved and Cyclomatic complexity
+    image = @compute_service.images # FIXME: Images over compute service is deprecated
       .select { |i| i.name == image_name }.first
 
-    if image.nil?
-      abort("#{image_name} is not an available image.")
-    end
+    abort("#{image_name} is not an available image.") if image.nil?
 
     distro_user_name = image.name.downcase.gsub(/[^a-z].*$/, '') # truncate downcased name at first non-alpha char
     distro_arch = image.name.downcase.slice(-2, 2)
@@ -73,7 +71,7 @@ class OpenStackTaster
     FileUtils.mkdir_p(@log_dir) unless Dir.exist?(@log_dir)
 
     instance_logger = Logger.new("#{@log_dir}/#{instance_name}.log")
-  
+
     error_log(
       instance_logger,
       'info',
@@ -94,11 +92,9 @@ class OpenStackTaster
       return false
     end
 
-    instance.instance_variable_set('@logger', instance_logger)
+    instance.class.send(:attr_accessor, 'logger')
 
-    def instance.logger
-      @logger
-    end
+    instance.logger = instance_logger
 
     instance.wait_for(TIMEOUT_INSTANCE_TO_BE_CREATED) { ready? }
 
@@ -130,19 +126,18 @@ class OpenStackTaster
       puts "Destroying instance for session #{@session_id}.\n\n"
       instance.destroy
     end
-    return false
   end
 
   def taste_security(instance, username)
     opts = {
-          "backend" => "ssh",
-          "host" => instance.addresses["public"].first["addr"],
-          "port" => 22,
-          "user" => username,
-          "keys_only" => true,
-          "key_files" => @ssh_private_key,
-          "logger" => instance.logger
-        }
+      'backend' => 'ssh',
+      'host' => instance.addresses['public'].first['addr'],
+      'port' => 22,
+      'user' => username,
+      'keys_only' => true,
+      'key_files' => @ssh_private_key,
+      'logger' => instance.logger
+    }
 
     tries = 0
 
@@ -161,23 +156,25 @@ class OpenStackTaster
       error_log(instance.logger, 'error', e.backtrace, false, 'Inspec Runner')
       error_log(instance.logger, 'error', e.message, false, 'Inspec Runner')
       return true # TODO: Don't crash when connection refused
-    rescue Exception => e
+    rescue StandardError => e
       puts "Encountered error \"#{e.message}\". Aborting test."
       return true
     end
 
-    error_log( instance.logger, 'info',
+    error_log(
+      instance.logger,
+      'info',
       "Inspec Test Results\n" +
-      runner.report[:controls].map do |test| 
+      runner.report[:controls].map do |test|
         "#{test[:status].upcase}: #{test[:code_desc]}\n#{test[:message]}"
       end.join("\n")
     )
 
-    if runner.report[:controls].any?{|test| test[:status] == 'failed'}
+    if runner.report[:controls].any? { |test| test[:status] == 'failed' }
       error_log(instance.logger, 'warn', 'Image failed security test suite')
       return false
     end
-    return true
+    true
   end
 
   def error_log(logger, level, message, dup_stdout = false, context = nil)

@@ -14,9 +14,12 @@ Metrics/MethodLength:
 Metrics/ClassLength:
   Enabled: false
 
-
-Style/ParameterLists:
+Metrics/BlockLength:
   Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
 
 Style/IfUnlessModifier:
   MaxLineLength: 120

@@ -2,7 +2,7 @@
 
 source 'https://rubygems.org' do
   gem 'fog'
-  gem 'net-ssh'
   gem 'inspec'
+  gem 'net-ssh'
   gem 'optparse'
 end

@@ -4,7 +4,7 @@
 require 'optparse'
 
 suites = {
-  'security' => 'Runs the security test suite', 
+  'security' => 'Runs the security test suite',
   'volumes' => 'Runs the volume test suite'
 }
 settings = {}
@@ -12,11 +12,11 @@ settings = {}
 ARGV << '-h' if ARGV.empty?
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: openstack_taster <test_suite> <image_name> <option>\n" + \
-                "   or: openstack_taster <test_suite>\n" + \
-                "   or: openstack_taster <option>"
-  opts.separator("")
-  opts.separator("Available Arguments:")
+  opts.banner = "'Usage: openstack_taster <test_suite> <image_name> <option>\n" \
+                "   or: openstack_taster <test_suite>\n" \
+                '   or: openstack_taster <option>'
+  opts.separator('')
+  opts.separator('Available Arguments:')
   opts.on('-c', '--create-image', 'Create image upon test failure.') do
     settings[:create] = true
   end
@@ -24,8 +24,8 @@ parser = OptionParser.new do |opts|
     puts opts
     settings[:exit] = true
   end
-  opts.separator("")
-  opts.separator("Test Suites:")
+  opts.separator('')
+  opts.separator('Test Suites:')
   suites.each do |suite, desc|
     opts.separator("    #{suite}\t\t#{desc}")
   end
@@ -37,8 +37,8 @@ rescue OptionParser::InvalidOption => io
   puts io.message
   puts parser
   exit 1
-rescue Exception => e
-  puts "Argument parsing failed:"
+rescue StandardError => e
+  puts 'Argument parsing failed:'
   puts e.message
   puts e.backtrace
   exit 1
@@ -52,13 +52,13 @@ begin
     image_name = params[0]
     suites.each_key { |suite| settings[suite.to_sym] = true }
   when 2
-    raise "#{params[0]} is not a test suite!" if ! suites.include? params[0]
+    raise "#{params[0]} is not a test suite!" unless suites.include? params[0]
     image_name = params[1]
     settings[params[0].to_sym] = true
   else
     raise '"' + params.join(' ') + '" is not the correct format!'
   end
-rescue Exception => e
+rescue StandardError => e
   puts e.message
   puts
   puts parser
@@ -94,6 +94,6 @@ image   = Fog::Image::OpenStack.new(OPENSTACK_CREDS)
 network = Fog::Network::OpenStack.new(OPENSTACK_CREDS)
 
 exit OpenStackTaster.new(
-       compute, volume, image, network,
-       SSH_KEYS, LOG_DIR
-     ).taste(image_name, settings)
+  compute, volume, image, network,
+  SSH_KEYS, LOG_DIR
+).taste(image_name, settings)
