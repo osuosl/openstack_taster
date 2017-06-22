@@ -107,19 +107,16 @@ class OpenStackTaster
 
     error_log(instance.logger, 'info', "Testing for instance '#{instance.id}'.", true)
 
-    return test(instance, distro_user_name, settings)
-  end
-
-  def test(instance, distro_user_name, settings)
+    # Run tests
     return_values = []
-    return_values.push test_security(instance, distro_user_name) if settings[:security]
-    return_values.push test_volumes(instance, distro_user_name) if settings[:volumes]
+    return_values.push taste_security(instance, distro_user_name) if settings[:security]
+    return_values.push taste_volumes(instance, distro_user_name) if settings[:volumes]
 
-    if return_values.include?(false) && settings[:create]
+    if settings[:create] && return_values.include? false
       error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)
       create_image(instance) # Create image here since it is destroyed before scope returns to taste function
     end
-    return !return_values.include?(false)
+    return !return_values.include? false
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
@@ -136,7 +133,7 @@ class OpenStackTaster
     return false
   end
 
-  def test_security(instance, username)
+  def taste_security(instance, username)
     opts = {
           "backend" => "ssh",
           "host" => instance.addresses["public"].first["addr"],
@@ -217,7 +214,7 @@ class OpenStackTaster
       .wait_for { status == 'active' }
   end
 
-  def test_volumes(instance, username)
+  def taste_volumes(instance, username)
     mount_failures = @volumes.reject do |volume|
       if volume.attachments.any?
         error_log(instance.logger, 'info', "Volume '#{volume.name}' is already in an attached state; skipping.", true)
@@ -226,7 +223,7 @@ class OpenStackTaster
 
       unless volume_attach?(instance, volume)
         error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
-        return false # Returns from test_volumes
+        return false # Returns from taste_volumes
       end
 
       volume_mount_unmount?(instance, username, volume)
