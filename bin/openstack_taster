@@ -35,6 +35,7 @@ begin
   params = parser.parse!
 rescue OptionParser::InvalidOption => io
   puts io.message
+  puts
   puts parser
   exit 1
 rescue StandardError => e
@@ -56,7 +57,7 @@ begin
     image_name = params[1]
     settings[params[0].to_sym] = true
   else
-    raise '"' + params.join(' ') + '" is not the correct format!'
+    raise "'#{params.join(' ')}' is not the correct format!"
   end
 rescue StandardError => e
   puts e.message
