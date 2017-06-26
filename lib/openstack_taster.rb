@@ -23,23 +23,6 @@ class OpenStackTaster
   TIMEOUT_SSH_RETRY = 15
 
   TIME_SLUG_FORMAT = '%Y%m%d_%H%M%S'
-  SAFE_IMAGE_NAMES = [ # FIXME: Remove hard coding
-    'OpenSUSE Leap 42.2 LE',
-    'Ubuntu 14.04 BE',
-    'Fedora 23 BE',
-    'Fedora 23 LE',
-    'Fedora 24 BE',
-    'Fedora 24 LE',
-    'Debian 8 LE',
-    'Debian 8 BE',
-    'CentOS 7.2 BE',
-    'Ubuntu 14.04 LE',
-    'Ubuntu 16.04 BE',
-    'Ubuntu 16.04 LE',
-    'Ubuntu 16.10 BE',
-    'Ubuntu 16.10 LE',
-    'CentOS 7.2 LE'
-  ].freeze
 
   def initialize(
     compute_service,
@@ -55,10 +38,6 @@ class OpenStackTaster
     @network_service = network_service
 
     @volumes = @volume_service.volumes
-    @images  = @compute_service.images # FIXME: Images over compute service is deprecated
-      .select { |image| SAFE_IMAGE_NAMES.include?(image.name) }.reverse
-
-    puts "Tasting with #{@images.count} images and #{@volumes.count} volumes."
 
     @ssh_keypair     = ssh_keys[:keypair]
     @ssh_private_key = ssh_keys[:private_key]
@@ -73,32 +52,12 @@ class OpenStackTaster
       .select { |network| network.name == INSTANCE_NETWORK_NAME }.first
   end
 
-  def taste_all
-    puts "Starting session #{@session_id}...\n\n"
-    successes = []
-    failures = []
+  def taste(image_name, settings) # FIXME: Reduce Percieved and Cyclomatic complexity
+    image = @compute_service.images # FIXME: Images over compute service is deprecated
+      .select { |i| i.name == image_name }.first
 
-    @images.each do |image|
-      begin
-        (taste(image) ? successes : failures) << image
-      rescue Interrupt
-        break
-      end
-    end
+    abort("#{image_name} is not an available image.") if image.nil?
 
-    puts 'SUCCESSES >'
-
-    successes.each { |image| puts "    #{image.name}" }
-    puts 'FAILURES >'
-    failures.each { |image| puts "    #{image.name}" }
-    puts
-
-    File.open("#{@log_dir}/failures.log", 'w') do |f|
-      f.puts(failures.map(&:name))
-    end
-  end
-
-  def taste(image)
     distro_user_name = image.name.downcase.gsub(/[^a-z].*$/, '') # truncate downcased name at first non-alpha char
     distro_arch = image.name.downcase.slice(-2, 2)
     instance_name = format(
@@ -112,7 +71,7 @@ class OpenStackTaster
     FileUtils.mkdir_p(@log_dir) unless Dir.exist?(@log_dir)
 
     instance_logger = Logger.new("#{@log_dir}/#{instance_name}.log")
-  
+
     error_log(
       instance_logger,
       'info',
@@ -133,11 +92,9 @@ class OpenStackTaster
       return false
     end
 
-    instance.instance_variable_set('@logger', instance_logger)
+    instance.class.send(:attr_accessor, 'logger')
 
-    def instance.logger
-      @logger
-    end
+    instance.logger = instance_logger
 
     instance.wait_for(TIMEOUT_INSTANCE_TO_BE_CREATED) { ready? }
 
@@ -146,12 +103,16 @@ class OpenStackTaster
 
     error_log(instance.logger, 'info', "Testing for instance '#{instance.id}'.", true)
 
-    if not_secure?(instance, distro_user_name)
-      error_log(instance.logger, 'warn', "Image failed security test suite")
-      return false
-    end
+    # Run tests
+    return_values = []
+    return_values.push taste_security(instance, distro_user_name) if settings[:security]
+    return_values.push taste_volumes(instance, distro_user_name) if settings[:volumes]
 
-    return test_volumes(instance, distro_user_name)
+    if settings[:create] && !return_values.all?
+      error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)
+      create_image(instance) # Create image here since it is destroyed before scope returns to taste function
+    end
+    return return_values.all?
   rescue Fog::Errors::TimeoutError
     puts 'Instance creation timed out.'
     error_log(instance.logger, 'error', "Instance fault: #{instance.fault}")
@@ -167,16 +128,16 @@ class OpenStackTaster
     end
   end
 
-  def not_secure?(instance, username)
+  def taste_security(instance, username)
     opts = {
-          "backend" => "ssh",
-          "host" => instance.addresses["public"].first["addr"],
-          "port" => 22,
-          "user" => username,
-          "keys_only" => true,
-          "key_files" => @ssh_private_key,
-          "logger" => instance.logger
-        }
+      'backend' => 'ssh',
+      'host' => instance.addresses['public'].first['addr'],
+      'port' => 22,
+      'user' => username,
+      'keys_only' => true,
+      'key_files' => @ssh_private_key,
+      'logger' => instance.logger
+    }
 
     tries = 0
 
@@ -195,19 +156,25 @@ class OpenStackTaster
       error_log(instance.logger, 'error', e.backtrace, false, 'Inspec Runner')
       error_log(instance.logger, 'error', e.message, false, 'Inspec Runner')
       return true # TODO: Don't crash when connection refused
-    rescue Exception => e
+    rescue StandardError => e
       puts "Encountered error \"#{e.message}\". Aborting test."
       return true
     end
 
-    error_log( instance.logger, 'info',
+    error_log(
+      instance.logger,
+      'info',
       "Inspec Test Results\n" +
-      runner.report[:controls].map do |test| 
+      runner.report[:controls].map do |test|
         "#{test[:status].upcase}: #{test[:code_desc]}\n#{test[:message]}"
       end.join("\n")
     )
 
-    return runner.report[:controls].any?{|test| test[:status] == "failed"}
+    if runner.report[:controls].any? { |test| test[:status] == 'failed' }
+      error_log(instance.logger, 'warn', 'Image failed security test suite')
+      return false
+    end
+    true
   end
 
   def error_log(logger, level, message, dup_stdout = false, context = nil)
@@ -244,7 +211,7 @@ class OpenStackTaster
       .wait_for { status == 'active' }
   end
 
-  def test_volumes(instance, username)
+  def taste_volumes(instance, username)
     mount_failures = @volumes.reject do |volume|
       if volume.attachments.any?
         error_log(instance.logger, 'info', "Volume '#{volume.name}' is already in an attached state; skipping.", true)
@@ -252,9 +219,8 @@ class OpenStackTaster
       end
 
       unless volume_attach?(instance, volume)
-        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach. Creating image...", true)
-        create_image(instance)
-        return false # Returns from test_volumes
+        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
+        return false # Returns from taste_volumes
       end
 
       volume_mount_unmount?(instance, username, volume)
@@ -265,7 +231,7 @@ class OpenStackTaster
     end
 
     if mount_failures.empty? && detach_failures.empty?
-      error_log(instance.logger, 'info', "\nEncountered 0 failures. Not creating image...", true)
+      error_log(instance.logger, 'info', "\nEncountered 0 failures.", true)
       true
     else
       error_log(
@@ -274,8 +240,7 @@ class OpenStackTaster
         "\nEncountered #{mount_failures.count} mount failures and #{detach_failures.count} detach failures.",
         true
       )
-      error_log(instance.logger, 'error', "\nEncountered failures. Creating image...", true)
-      create_image(instance)
+      error_log(instance.logger, 'error', "\nEncountered failures.", true)
       false
     end
   end

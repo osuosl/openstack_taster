@@ -1,6 +1,70 @@
 #!/usr/bin/env ruby
-
 # frozen_string_literal: true
+
+require 'optparse'
+
+suites = {
+  'security' => 'Runs the security test suite',
+  'volumes' => 'Runs the volume test suite'
+}
+settings = {}
+
+ARGV << '-h' if ARGV.empty?
+
+parser = OptionParser.new do |opts|
+  opts.banner = "'Usage: openstack_taster <test_suite> <image_name> <option>\n" \
+                "   or: openstack_taster <test_suite>\n" \
+                '   or: openstack_taster <option>'
+  opts.separator('')
+  opts.separator('Available Arguments:')
+  opts.on('-c', '--create-image', 'Create image upon test failure.') do
+    settings[:create] = true
+  end
+  opts.on('-h', '--help', 'Print usage information.') do
+    puts opts
+    settings[:exit] = true
+  end
+  opts.separator('')
+  opts.separator('Test Suites:')
+  suites.each do |suite, desc|
+    opts.separator("    #{suite}\t\t#{desc}")
+  end
+end
+
+begin
+  params = parser.parse!
+rescue OptionParser::InvalidOption => io
+  puts io.message
+  puts
+  puts parser
+  exit 1
+rescue StandardError => e
+  puts 'Argument parsing failed:'
+  puts e.message
+  puts e.backtrace
+  exit 1
+end
+
+exit if settings[:exit] # exit inside OptionParser causes problems.
+
+begin
+  case params.length
+  when 1
+    image_name = params[0]
+    suites.each_key { |suite| settings[suite.to_sym] = true }
+  when 2
+    raise "#{params[0]} is not a test suite!" unless suites.include? params[0]
+    image_name = params[1]
+    settings[params[0].to_sym] = true
+  else
+    raise "'#{params.join(' ')}' is not the correct format!"
+  end
+rescue StandardError => e
+  puts e.message
+  puts
+  puts parser
+  exit(1)
+end
 
 require 'fog/openstack'
 require 'openstack_taster'
@@ -30,7 +94,7 @@ volume  = Fog::Volume::OpenStack.new(OPENSTACK_CREDS)
 image   = Fog::Image::OpenStack.new(OPENSTACK_CREDS)
 network = Fog::Network::OpenStack.new(OPENSTACK_CREDS)
 
-OpenStackTaster.new(
+exit OpenStackTaster.new(
   compute, volume, image, network,
   SSH_KEYS, LOG_DIR
-).taste_all
+).taste(image_name, settings)
