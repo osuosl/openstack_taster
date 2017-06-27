@@ -66,9 +66,9 @@ class OpenStackTaster
   #   and passing the standardized parameters.
   # @todo Reduce Percieved and Cyclomatic complexity
   # @todo Images over compute service is deprecated
-  def taste(image_name, settings) 
-    image = @compute_service.images 
-      .select { |i| i.name == image_name }.first 
+  def taste(image_name, settings)
+    image = @compute_service.images
+      .select { |i| i.name == image_name }.first
 
     abort("#{image_name} is not an available image.") if image.nil?
 
@@ -281,7 +281,8 @@ class OpenStackTaster
     end
   end
 
-  # A helper method to execute a series of commands remotely on an instance. This helper passes its block directly to `Net::SSH#start()`.
+  # A helper method to execute a series of commands remotely on an instance. This helper
+  # passes its block directly to `Net::SSH#start()`.
   # @param instance [Fog::Compute::OpenStack::Server] the instance on which to run the commands
   # @param username [String] the username to use when logging into the instance
   # @todo Don't crash when connection refused.
@@ -407,7 +408,6 @@ class OpenStackTaster
       end
     end
   end
-
 
   # Detach volume from instance.
   # @param instance [Fog::Compute::OpenStack::Server] the instance from which to detach
