@@ -22,6 +22,8 @@ class OpenStackTaster
   TIMEOUT_INSTANCE_STARTUP = 30
   TIMEOUT_SSH_RETRY = 15
 
+  MAX_SSH_RETRY = 3
+
   TIME_SLUG_FORMAT = '%Y%m%d_%H%M%S'
 
   def initialize(
@@ -147,7 +149,7 @@ class OpenStackTaster
       runner.run
     rescue RuntimeError => e
       puts "Encountered error \"#{e.message}\" while testing the instance."
-      if tries < 3
+      if tries < MAX_SSH_RETRY
         tries += 1
         puts "Initiating SSH attempt #{tries} in #{TIMEOUT_SSH_RETRY} seconds"
         sleep TIMEOUT_SSH_RETRY
@@ -260,7 +262,7 @@ class OpenStackTaster
       )
     rescue Errno::ECONNREFUSED => e
       puts "Encountered #{e.message} while connecting to the instance."
-      if tries < 3
+      if tries < MAX_SSH_RETRY
         tries += 1
         puts "Initiating SSH attempt #{tries} in #{TIMEOUT_SSH_RETRY} seconds"
         sleep TIMEOUT_SSH_RETRY
