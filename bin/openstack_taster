@@ -12,12 +12,12 @@ settings = {}
 ARGV << '-h' if ARGV.empty?
 
 parser = OptionParser.new do |opts|
-  opts.banner = "'Usage: openstack_taster <test_suite> <image_name> <option>\n" \
-                "   or: openstack_taster <test_suite>\n" \
+  opts.banner = "Usage: openstack_taster <image_name> {suite_name} [--create-snapshot]\n" \
+                "   or: openstack_taster <image_name> [--create-snapshot]\n" \
                 '   or: openstack_taster <option>'
   opts.separator('')
   opts.separator('Available Arguments:')
-  opts.on('-c', '--create-image', 'Create image upon test failure.') do
+  opts.on('-c', '--create-snapshot', 'Create snapshot upon test failure.') do
     settings[:create] = true
   end
   opts.on('-h', '--help', 'Print usage information.') do
@@ -53,11 +53,11 @@ begin
     image_name = params[0]
     suites.each_key { |suite| settings[suite.to_sym] = true }
   when 2
-    raise "#{params[0]} is not a test suite!" unless suites.include? params[0]
-    image_name = params[1]
-    settings[params[0].to_sym] = true
+    raise "#{params[1]} is not a test suite!" unless suites.include? params[1]
+    image_name = params[0]
+    settings[params[1].to_sym] = true
   else
-    raise "'#{params.join(' ')}' is not the correct format!"
+    raise 'Incorrect format!'
   end
 rescue StandardError => e
   puts e.message
