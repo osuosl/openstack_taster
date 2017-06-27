@@ -58,7 +58,7 @@ class OpenStackTaster
   # @param settings [Hash] A hash of settings to enable and disable tests, snapshot creation upon failure.
   # @return [Boolean] success or failure of tests on image.
   # @note The testing section could be further streamlined by:  
-  #   creating a naming standard for test functionions (i.e. taste_<name>)  
+  #   creating a naming standard for test functions (i.e. taste_<name>)  
   #   limiting the parameters of each test to be: instance, distro_username  
   #   Adding a 'suites' subhash to the settings hash  
   #   Then that subhash can be iterated over, use eval to call each function,
@@ -226,7 +226,7 @@ class OpenStackTaster
   end
 
   # Create an image of an instance.
-  # @note This method blocks until the image is complete on the server.
+  # @note This method blocks until snapshot creation is complete on the server.
   # @param instance [Fog::Compute::OpenStack::Server] the instance to query
   # @return [Fog::Image::OpenStack::Image] the generated image
   def create_image(instance)

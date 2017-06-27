@@ -9,7 +9,7 @@ A block can be added to `opts.on` so that once it parses the flag, any code insi
 
 2. Test Suites  
 If you want to add a test suite to `openstack_taster`, then there are only 3 things you need to do:
-  1. Add a suite name and description to the `suites` hash. Do not use spaces.
-  2. Add this line in `lib/openstack_taster.rb:taste`: `return_values.push taste_<suite_name>(<parameters>) if settings[:<suite_name>]`  
+    1. Add a suite name and description to the `suites` hash. Do not use spaces.
+    2. Add this line in `lib/openstack_taster.rb:taste`: `return_values.push taste_<suite_name>(<parameters>) if settings[:<suite_name>]`  
       `<suite_name>` is the name of your suite defined in the `suites` hash in `bin/openstack_taster`.
-  3. Add your function to `lib/openstack_taste.rb`. The standard for suite function names is `taste_<suite_name>`.
+    3. Add your function to `lib/openstack_taster.rb`. The standard for suite function names is `taste_<suite_name>`.
