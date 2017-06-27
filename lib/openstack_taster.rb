@@ -7,6 +7,7 @@ require 'net/ssh'
 require 'pry'
 require 'inspec'
 
+# @author Andrew Tolvstad, Samarendra Hedaoo, Cody Holliday
 class OpenStackTaster
   INSTANCE_FLAVOR_NAME = 'm1.small'
   INSTANCE_NETWORK_NAME = 'public'
@@ -52,9 +53,15 @@ class OpenStackTaster
       .select { |network| network.name == INSTANCE_NETWORK_NAME }.first
   end
 
-  def taste(image_name, settings) # FIXME: Reduce Percieved and Cyclomatic complexity
-    image = @compute_service.images # FIXME: Images over compute service is deprecated
-      .select { |i| i.name == image_name }.first
+  # Taste a specified image
+  # @param image_name [String] The name on OpenStack of the image to be tested.
+  # @param settings [Hash] A hash of settings to enable and disable tests, snapshot creation upon failure.
+  # @return [Boolean] success or failure of tests on image.
+  # @todo Reduce Percieved and Cyclomatic complexity
+  # @todo Images over compute service is deprecated
+  def taste(image_name, settings) 
+    image = @compute_service.images 
+      .select { |i| i.name == image_name }.first 
 
     abort("#{image_name} is not an available image.") if image.nil?
 
@@ -128,6 +135,11 @@ class OpenStackTaster
     end
   end
 
+  # Runs the security test suite using inspec
+  # @param instance [Fog::Image::OpenStack::Image] The instance to test.
+  # @param username [String] The username to use when logging into the instance.
+  # @return [Boolean] Whether or not the image passed hte security tests.
+  # @todo Don't crash when connection refused.
   def taste_security(instance, username)
     opts = {
       'backend' => 'ssh',
@@ -155,7 +167,7 @@ class OpenStackTaster
       end
       error_log(instance.logger, 'error', e.backtrace, false, 'Inspec Runner')
       error_log(instance.logger, 'error', e.message, false, 'Inspec Runner')
-      return true # TODO: Don't crash when connection refused
+      return true
     rescue StandardError => e
       puts "Encountered error \"#{e.message}\". Aborting test."
       return true
@@ -177,6 +189,12 @@ class OpenStackTaster
     true
   end
 
+  # Write an error message to the log and optionally stdout.
+  # @param logger [Logger] the logger used to record the message.
+  # @param level [String] the level to use when logging.
+  # @param message [String] the message to write
+  # @param dup_stdout [Boolean] whether or not to print the message to stdout
+  # @param context [String] the context of the message to be logged. i.e. SSH, Inspec, etc.
   def error_log(logger, level, message, dup_stdout = false, context = nil)
     puts message if dup_stdout
 
@@ -191,12 +209,19 @@ class OpenStackTaster
     end
   end
 
+  # Get the name of the image from which an instance was created.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance to query
+  # @return [String] the name of the image
   def get_image_name(instance)
     @image_service
       .get_image_by_id(instance.image['id'])
       .body['name']
   end
 
+  # Create an image of an instance.
+  # @note This method blocks until the image is complete on the server.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance to query
+  # @return [Fog::Image::OpenStack::Image] the generated image
   def create_image(instance)
     image_name = [
       instance.name,
@@ -211,6 +236,10 @@ class OpenStackTaster
       .wait_for { status == 'active' }
   end
 
+  # Run the set of tests for each available volume on an instance.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance to query
+  # @param username [String] the username to use when logging into the instance
+  # @return [Boolean] Whether or not the tests succeeded
   def taste_volumes(instance, username)
     mount_failures = @volumes.reject do |volume|
       if volume.attachments.any?
@@ -245,6 +274,10 @@ class OpenStackTaster
     end
   end
 
+  # A helper method to execute a series of commands remotely on an instance. This helper passes its block directly to `Net::SSH#start()`.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance on which to run the commands
+  # @param username [String] the username to use when logging into the instance
+  # @todo Don't crash when connection refused.
   def with_ssh(instance, username, &block)
     tries = 0
     instance.logger.progname = 'SSH'
@@ -268,10 +301,14 @@ class OpenStackTaster
       end
       error_log(instance.logger, 'error', e.backtrace, false, 'SSH')
       error_log(instance.logger, 'error', e.message, false, 'SSH')
-      exit 1 # TODO: Don't crash when connection refused
+      exit 1
     end
   end
 
+  # Test volume attachment for a given instance and volume.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance to which to attach the volume
+  # @param volume [Fog::Volume::OpenStack::Volume] the volume to attach
+  # @return [Boolean] whether or not the attachment was successful
   def volume_attach?(instance, volume)
     volume_attached = lambda do |_|
       volume_attachments.any? do |attachment|
@@ -299,6 +336,11 @@ class OpenStackTaster
     false
   end
 
+  # Test volume mounting and unmounting for an instance and a volume.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance on which to mount the volume
+  # @param username [String] the username to use when logging into the instance
+  # @param volume [Fog::Volume::OpenStack::Volume] the volume to mount
+  # @return [Boolean] whether or not the mounting/unmounting was successful
   def volume_mount_unmount?(instance, username, volume)
     mount = INSTANCE_VOLUME_MOUNT_POINT
     file_name = VOLUME_TEST_FILE_NAME
@@ -340,6 +382,9 @@ class OpenStackTaster
     true
   end
 
+  # Log instance's partition listing.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance to log
+  # @param username [String] the username to use when logging in to the instance
   def log_partitions(instance, username)
     puts 'Logging partition list and dmesg...'
 
@@ -356,6 +401,11 @@ class OpenStackTaster
     end
   end
 
+
+  # Detach volume from instance.
+  # @param instance [Fog::Compute::OpenStack::Server] the instance from which to detach
+  # @param volume [Fog::Volume::OpenStack::Volume] the volume to detach
+  # @return [Boolean] whether or not the detachment succeeded
   def volume_detach?(instance, volume)
     error_log(instance.logger, 'info', "Detaching #{volume.name}.", true)
     instance.detach_volume(volume.id)
