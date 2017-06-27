@@ -108,7 +108,7 @@ class OpenStackTaster
     return_values.push taste_security(instance, distro_user_name) if settings[:security]
     return_values.push taste_volumes(instance, distro_user_name) if settings[:volumes]
 
-    if settings[:create] && !return_values.all?
+    if settings[:create_snapshot] && !return_values.all?
       error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)
       create_image(instance) # Create image here since it is destroyed before scope returns to taste function
     end

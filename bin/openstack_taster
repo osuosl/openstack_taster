@@ -18,7 +18,7 @@ parser = OptionParser.new do |opts|
   opts.separator('')
   opts.separator('Available Arguments:')
   opts.on('-c', '--create-snapshot', 'Create snapshot upon test failure.') do
-    settings[:create] = true
+    settings[:create_snapshot] = true
   end
   opts.on('-h', '--help', 'Print usage information.') do
     puts opts
