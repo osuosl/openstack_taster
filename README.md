@@ -27,5 +27,10 @@ Tests a complete OpenStack deployment for various functionalities
    $ gem build openstack_taster.gemspec
    $ gem install openstack_taster-*.gem
    ```
+
 3. Now you can run ``openstack_taster``.
 This will create, test, and destroy instances using all the images and volumes available to the user and log everything inside logs/${FQDN of Openstack controller you are testing on}. Each run will create a directory named after the session id and inside that you will find a log file for each image that you are testing.
+
+# Contributing
+
+If you would like to add flags or tests suites, please consult `CONTRIBUTING.md` in the `openstack_taster` root directory.
