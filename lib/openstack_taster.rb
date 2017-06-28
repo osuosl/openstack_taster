@@ -23,6 +23,8 @@ class OpenStackTaster
   TIMEOUT_INSTANCE_STARTUP = 30
   TIMEOUT_SSH_RETRY = 15
 
+  MAX_SSH_RETRY = 3
+
   TIME_SLUG_FORMAT = '%Y%m%d_%H%M%S'
 
   def initialize(
@@ -122,7 +124,7 @@ class OpenStackTaster
     return_values.push taste_security(instance, distro_user_name) if settings[:security]
     return_values.push taste_volumes(instance, distro_user_name) if settings[:volumes]
 
-    if settings[:create] && !return_values.all?
+    if settings[:create_snapshot] && !return_values.all?
       error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)
       create_image(instance) # Create image here since it is destroyed before scope returns to taste function
     end
@@ -166,7 +168,7 @@ class OpenStackTaster
       runner.run
     rescue RuntimeError => e
       puts "Encountered error \"#{e.message}\" while testing the instance."
-      if tries < 3
+      if tries < MAX_SSH_RETRY
         tries += 1
         puts "Initiating SSH attempt #{tries} in #{TIMEOUT_SSH_RETRY} seconds"
         sleep TIMEOUT_SSH_RETRY
@@ -301,7 +303,7 @@ class OpenStackTaster
       )
     rescue Errno::ECONNREFUSED => e
       puts "Encountered #{e.message} while connecting to the instance."
-      if tries < 3
+      if tries < MAX_SSH_RETRY
         tries += 1
         puts "Initiating SSH attempt #{tries} in #{TIMEOUT_SSH_RETRY} seconds"
         sleep TIMEOUT_SSH_RETRY
