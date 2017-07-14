@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.licenses    = ['Apache-2.0']
   spec.homepage    = 'https://github.com/osuosl/openstack-taster'
   spec.add_runtime_dependency 'inspec', '~> 1.10.0'
-  spec.add_runtime_dependency 'fog', '~> 1.40.0'
+  spec.add_runtime_dependency 'fog-openstack', '~> 0.1.19'
   spec.add_runtime_dependency 'net-ssh', '~> 3.2.0'
   spec.executables = 'openstack_taster'
   spec.files       = [
