@@ -33,4 +33,7 @@ This will create, test, and destroy instances using all the images and volumes a
 
 # Contributing
 
-If you would like to add flags or tests suites, please consult `CONTRIBUTING.md` in the `openstack_taster` root directory.
+If you would like to contribute to this project, but wonder how to do it or what things you could work on, please consult the `CONTRIBUTING.md` in the `openstack_taster` root directory.
+
+# Contact
+The developers hangout on #osuosl IRC channel and can be contacted at `openstack-taster@osuosl.org`
