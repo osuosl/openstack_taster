@@ -333,14 +333,9 @@ class OpenStackTaster
     error_log(instance.logger, 'info', "Sleeping #{TIMEOUT_VOLUME_PERSIST} seconds for attachment persistance...", true)
     sleep TIMEOUT_VOLUME_PERSIST
 
-    # In the off chance that the volume host goes down, catch it.
-    if instance.instance_eval(&volume_attached)
-      return true if volume.attachments.first
-      error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume host might be down.", true)
-    else
-      error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume was unexpectedly detached.", true)
-    end
+    return true if instance.instance_eval(&volume_attached)
 
+    error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume was unexpectedly detached.", true)
     false
   rescue Excon::Error => e
     puts 'Error attaching volume, check log for details.'
