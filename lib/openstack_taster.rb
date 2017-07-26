@@ -258,7 +258,7 @@ class OpenStackTaster
 
       unless volume_attach?(instance, volume)
         error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
-        return false # Returns from taste_volumes
+        next # Returns from taste_volumes
       end
 
       volume_mount_unmount?(instance, username, volume)
@@ -335,7 +335,7 @@ class OpenStackTaster
 
     # In the off chance that the volume host goes down, catch it.
     if instance.instance_eval(&volume_attached)
-      return true if volume.attachments.first
+      return true if @volume_service.volumes.find_by_id(volume.id).attachments.first
       error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume host might be down.", true)
     else
       error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume was unexpectedly detached.", true)
