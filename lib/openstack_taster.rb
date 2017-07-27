@@ -59,13 +59,13 @@ class OpenStackTaster
   # @param image_name [String] The name on OpenStack of the image to be tested.
   # @param settings [Hash] A hash of settings to enable and disable tests, snapshot creation upon failure.
   # @return [Boolean] success or failure of tests on image.
-  # @note The testing section could be further streamlined by:  
-  #   creating a naming standard for test functions (i.e. taste_<name>)  
-  #   limiting the parameters of each test to be: instance, distro_username  
-  #   Adding a 'suites' subhash to the settings hash  
+  # @note The testing section could be further streamlined by:
+  #   creating a naming standard for test functions (i.e. taste_<name>)
+  #   limiting the parameters of each test to be: instance, distro_username
+  #   Adding a 'suites' subhash to the settings hash
   #   Then that subhash can be iterated over, use eval to call each function,
   #   appending the suite name to 'taste_' for the function name
-  #   and passing the standardized parameters.
+  #   and passing the standardized parameters
   # @todo Reduce Percieved and Cyclomatic complexity
   # @todo Images over compute service is deprecated
   def taste(image_name, settings)
@@ -258,7 +258,7 @@ class OpenStackTaster
 
       unless volume_attach?(instance, volume)
         error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
-        return false # Returns from taste_volumes
+        next
       end
 
       volume_mount_unmount?(instance, username, volume)
@@ -335,7 +335,7 @@ class OpenStackTaster
 
     # In the off chance that the volume host goes down, catch it.
     if instance.instance_eval(&volume_attached)
-      return true if volume.attachments.first
+      return true if volume.reload.attachments.first
       error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume host might be down.", true)
     else
       error_log(instance.logger, 'error', "Failed to attach '#{volume.name}': Volume was unexpectedly detached.", true)
