@@ -6,11 +6,23 @@ control 'security-1.0' do
 
   username = user.username
 
-  describe sshd_config do
-    its('PermitRootLogin') { should eq 'no' }
-    its('PasswordAuthentication') { should eq 'no' }
-    its('ChallengeResponseAuthentication') { should eq 'no' }
-    its('KbdInteractiveAuthentication') { should eq 'no' }
+  describe 'saved sshd config' do
+    let(:resource) { command('sudo cat /etc/ssh/sshd_config') }
+
+    it 'should not permit root login' do
+      expect(resource.stdout).to cmp(/^PermitRootLogin no/i)
+    end
+
+    it 'should not permit password authentication' do
+      expect(resource.stdout).to cmp(/^PasswordAuthentication no/i)
+    end
+
+    it 'should not permit challenge response authentication' do
+      expect(resource.stdout).to cmp(/^ChallengeResponseAuthentication no/i)
+    end
+    it 'should not permit keyboard interactive authentication' do
+      expect(resource.stdout).to cmp(/^KbdInteractiveAuthentication no/i)
+    end
   end
 
   describe 'running sshd config' do
