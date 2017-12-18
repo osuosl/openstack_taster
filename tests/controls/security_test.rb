@@ -60,4 +60,14 @@ control 'security-1.0' do
       its('stdout') { should cmp(/\(ALL\) ((NO)*PASSWD)*: ALL/) }
     end
   end
+
+  # ssh should be the only thing listening
+  describe port.where { protocol =~ /tcp/ && port != 22 } do
+    it { should_not be_listening }
+  end
+
+  # It's OK if dhclient is listening
+  describe port.where { protocol =~ /udp/ && port != 68 && process != 'dhclient' } do
+    it { should_not be_listening }
+  end
 end
