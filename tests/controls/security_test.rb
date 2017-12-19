@@ -4,7 +4,7 @@ control 'security-1.0' do
   title 'Openstack Image Security Test'
   desc 'Tests the security of images used for Openstack.'
 
-  username = user.username
+  username = os.name
 
   describe 'saved sshd config' do
     let(:resource) { command('sudo cat /etc/ssh/sshd_config') }

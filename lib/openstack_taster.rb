@@ -155,6 +155,7 @@ class OpenStackTaster
       'host' => instance.addresses['public'].first['addr'],
       'port' => 22,
       'user' => username,
+      'sudo' => true,
       'keys_only' => true,
       'key_files' => @ssh_private_key,
       'logger' => instance.logger
