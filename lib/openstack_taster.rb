@@ -9,7 +9,7 @@ require 'inspec'
 
 # @author Andrew Tolvstad, Samarendra Hedaoo, Cody Holliday
 class OpenStackTaster
-  INSTANCE_FLAVOR_NAME = 'm1.small'
+  INSTANCE_FLAVOR_NAME = 'm1.tiny'
   INSTANCE_NETWORK_NAME = 'public'
   INSTANCE_NAME_PREFIX = 'taster'
   INSTANCE_VOLUME_MOUNT_POINT = '/mnt/taster_volume'
