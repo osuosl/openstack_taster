@@ -74,14 +74,12 @@ class OpenStackTaster
 
     abort("#{image_name} is not an available image.") if image.nil?
 
-    distro_user_name = image.name.downcase.gsub(/[^a-z].*$/, '') # truncate downcased name at first non-alpha char
-    distro_arch = image.name.downcase.slice(-2, 2)
+    distro = image.name.downcase[/^[a-z]*/]
     instance_name = format(
-      '%s-%s-%s-%s',
+      '%s-%s-%s',
       INSTANCE_NAME_PREFIX,
       Time.new.strftime(TIME_SLUG_FORMAT),
-      distro_user_name,
-      distro_arch
+      distro
     )
 
     FileUtils.mkdir_p(@log_dir) unless Dir.exist?(@log_dir)
@@ -91,7 +89,7 @@ class OpenStackTaster
     error_log(
       instance_logger,
       'info',
-      "Tasting #{image.name} as '#{instance_name}' with username '#{distro_user_name}'.\nBuilding...",
+      "Tasting #{image.name} as '#{instance_name}' with username '#{settings[:ssh_user]}'.\nBuilding...",
       true
     )
 
@@ -121,8 +119,8 @@ class OpenStackTaster
 
     # Run tests
     return_values = []
-    return_values.push taste_security(instance, distro_user_name) if settings[:security]
-    return_values.push taste_volumes(instance, distro_user_name) if settings[:volumes]
+    return_values.push taste_security(instance, settings[:ssh_user]) if settings[:security]
+    return_values.push taste_volumes(instance, settings[:ssh_user]) if settings[:volumes]
 
     if settings[:create_snapshot] && !return_values.all?
       error_log(instance.logger, 'info', "Tests failed for instance '#{instance.id}'. Creating image...", true)

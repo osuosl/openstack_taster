@@ -12,8 +12,8 @@ settings = {}
 ARGV << '-h' if ARGV.empty?
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: openstack_taster <image_name> {suite_name} [--create-snapshot]\n" \
-                "   or: openstack_taster <image_name> [--create-snapshot]\n" \
+  opts.banner = "Usage: openstack_taster <image_name> <ssh_user> {suite_name}  [--create-snapshot]\n" \
+                "   or: openstack_taster <image_name> <ssh_user> [--create-snapshot]\n" \
                 '   or: openstack_taster <option>'
   opts.separator('')
   opts.separator('Available Arguments:')
@@ -49,13 +49,11 @@ exit if settings[:exit] # exit inside OptionParser causes problems.
 
 begin
   case params.length
-  when 1
-    image_name = params[0]
-    suites.each_key { |suite| settings[suite.to_sym] = true }
   when 2
-    raise "#{params[1]} is not a test suite!" unless suites.include? params[1]
-    image_name = params[0]
-    settings[params[1].to_sym] = true
+    suites.each_key { |suite| settings[suite.to_sym] = true }
+  when 3
+    raise "#{params[2]} is not a test suite!" unless suites.include? params[2]
+    settings[params[2].to_sym] = true
   else
     raise 'Incorrect format!'
   end
@@ -66,8 +64,11 @@ rescue StandardError => e
   exit(1)
 end
 
+image_name = params[0]
+settings[:ssh_user] = params[1]
+
 require 'fog/openstack'
-require 'openstack_taster'
+require './lib/openstack_taster'
 
 auth_url = String.new(ENV['OS_AUTH_URL'])
 auth_url << '/tokens' unless auth_url.end_with?('tokens')
