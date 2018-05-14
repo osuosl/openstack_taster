@@ -68,7 +68,7 @@ image_name = params[0]
 settings[:ssh_user] = params[1]
 
 require 'fog/openstack'
-require './lib/openstack_taster'
+require 'openstack_taster'
 
 auth_url = String.new(ENV['OS_AUTH_URL'])
 auth_url << '/tokens' unless auth_url.end_with?('tokens')
