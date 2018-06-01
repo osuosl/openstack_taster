@@ -10,7 +10,6 @@ require 'inspec'
 # @author Andrew Tolvstad, Samarendra Hedaoo, Cody Holliday
 class OpenStackTaster
   INSTANCE_FLAVOR_NAME = 'm1.tiny'
-  INSTANCE_NETWORK_NAME = 'public1'
   INSTANCE_NAME_PREFIX = 'taster'
   INSTANCE_VOLUME_MOUNT_POINT = '/mnt/taster_volume'
 
@@ -32,6 +31,7 @@ class OpenStackTaster
     volume_service,
     image_service,
     network_service,
+    network_name,
     ssh_keys,
     log_dir
   )
@@ -40,6 +40,7 @@ class OpenStackTaster
     @image_service   = image_service
     @network_service = network_service
 
+    @network_name = network_name || 'public'
     @volumes = @volume_service.volumes
 
     @ssh_keypair     = ssh_keys[:keypair]
@@ -52,7 +53,8 @@ class OpenStackTaster
     @instance_flavor = @compute_service.flavors
       .select { |flavor|  flavor.name  == INSTANCE_FLAVOR_NAME  }.first
     @instance_network = @network_service.networks
-      .select { |network| network.name == INSTANCE_NETWORK_NAME }.first
+      .select { |network| network.name == @network_name }.first
+
   end
 
   # Taste a specified image
@@ -150,7 +152,7 @@ class OpenStackTaster
   def taste_security(instance, username)
     opts = {
       'backend' => 'ssh',
-      'host' => instance.addresses[INSTANCE_NETWORK_NAME].first['addr'],
+      'host' => instance.addresses[@network_name].first['addr'],
       'port' => 22,
       'user' => username,
       'sudo' => true,
@@ -292,7 +294,7 @@ class OpenStackTaster
     instance.logger.progname = 'SSH'
     begin
       Net::SSH.start(
-        instance.addresses[INSTANCE_NETWORK_NAME].first['addr'],
+        instance.addresses[@network_name].first['addr'],
         username,
         verbose: :info,
         paranoid: false,
