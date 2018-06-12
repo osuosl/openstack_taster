@@ -18,7 +18,7 @@ parser = OptionParser.new do |opts|
                 '   or: openstack_taster <option>'
   opts.separator('')
   opts.separator('Available Arguments:')
-  opts.on('-f', '--flavor', 'Set flavor for the instance.') do |f|
+  opts.on('-f', '--flavor=<flavor>', 'Set flavor for the instance.') do |f|
     flavor = f
   end
   opts.on('-c', '--create-snapshot', 'Create snapshot upon test failure.') do
