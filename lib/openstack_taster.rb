@@ -9,7 +9,6 @@ require 'inspec'
 
 # @author Andrew Tolvstad, Samarendra Hedaoo, Cody Holliday
 class OpenStackTaster
-  INSTANCE_FLAVOR_NAME = 'm1.tiny'
   INSTANCE_NAME_PREFIX = 'taster'
   INSTANCE_VOLUME_MOUNT_POINT = '/mnt/taster_volume'
 
@@ -32,6 +31,7 @@ class OpenStackTaster
     image_service,
     network_service,
     network_name,
+    instance_flavor,
     ssh_keys,
     log_dir
   )
@@ -51,7 +51,7 @@ class OpenStackTaster
     @log_dir         = log_dir + "/#{@session_id}"
 
     @instance_flavor = @compute_service.flavors
-      .select { |flavor|  flavor.name  == INSTANCE_FLAVOR_NAME  }.first
+      .select { |flavor|  flavor.name  == instance_flavor  }.first
     @instance_network = @network_service.networks
       .select { |network| network.name == @network_name }.first
 
