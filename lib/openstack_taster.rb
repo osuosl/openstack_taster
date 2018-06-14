@@ -12,6 +12,10 @@ class OpenStackTaster
   INSTANCE_NAME_PREFIX = 'taster'
   INSTANCE_VOLUME_MOUNT_POINT = '/mnt/taster_volume'
 
+  VOLUME_NAME = 'test_volume'
+  VOLUME_DESCRIPTION = 'Test volume for OpenStack Taster.'
+  VOLUME_SIZE = 1
+  VOLUME_FILESYSTEM = 'ext4'
   VOLUME_TEST_FILE_NAME = 'info'
   VOLUME_TEST_FILE_CONTENTS = nil # Contents would be something like 'test-vol-1 on openpower8.osuosl.bak'
   TIMEOUT_INSTANCE_CREATE = 20
@@ -251,37 +255,41 @@ class OpenStackTaster
   # @param username [String] the username to use when logging into the instance
   # @return [Boolean] Whether or not the tests succeeded
   def taste_volumes(instance, username)
-    mount_failures = @volumes.reject do |volume|
-      if volume.attachments.any?
-        error_log(instance.logger, 'info', "Volume '#{volume.name}' is already in an attached state; skipping.", true)
-        next
-      end
+    volume_info = @volume_service.create_volume(VOLUME_NAME, VOLUME_DESCRIPTION, VOLUME_SIZE)
+    volume = @volume_service.volumes.get(volume_info.body['volume']['id'])
 
-      unless volume_attach?(instance, volume)
-        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
-        next
-      end
+    sleep 5
 
-      volume_mount_unmount?(instance, username, volume)
+    unless volume_attach?(instance, volume)
+      error_log(instance.logger, 'error', "Volume '#{volume.id}' failed to attach.", true)
+      return false
+    else
+      with_ssh(instance, username) do |ssh|
+        command = "sudo mkfs.#{VOLUME_FILESYSTEM} #{volume.attachments.first['device']}"
+        print command
+        result = ssh.exec!(command).chomp
+        error_log(instance.logger, 'info', "Result of mkfs on newly created volume: #{result}", true)
+      end
+      mount = volume_mount_unmount?(instance, username, volume)
+      detach = volume_detach?(instance, volume)
     end
 
-    detach_failures = @volumes.reject do |volume|
-      volume_detach?(instance, volume)
-    end
-
-    if mount_failures.empty? && detach_failures.empty?
-      error_log(instance.logger, 'info', "\nEncountered 0 failures.", true)
+    if mount && detach
+      error_log(instance.logger, 'info', "\nVolume testing passed!.", true)
       true
     else
       error_log(
         instance.logger,
         'error',
-        "\nEncountered #{mount_failures.count} mount failures and #{detach_failures.count} detach failures.",
+        "\nVolume mounted: #{mount} detached: #{detach}.",
         true
       )
       error_log(instance.logger, 'error', "\nEncountered failures.", true)
       false
     end
+  ensure
+    error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
+    @volume_service.delete_volume(volume.id)
   end
 
   # A helper method to execute a series of commands remotely on an instance. This helper
@@ -297,7 +305,7 @@ class OpenStackTaster
         instance.addresses[@network_name].first['addr'],
         username,
         verbose: :info,
-        paranoid: false,
+        verify_host_key: false,
         logger: instance.logger,
         keys: [@ssh_private_key],
         &block
