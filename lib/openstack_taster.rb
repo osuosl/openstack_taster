@@ -12,12 +12,12 @@ class OpenStackTaster
   INSTANCE_NAME_PREFIX = 'taster'
   INSTANCE_VOLUME_MOUNT_POINT = '/mnt/taster_volume'
 
-  VOLUME_NAME = 'test_volume'
+  VOLUME_NAME_PREFIX = 'test_volume'
   VOLUME_DESCRIPTION = 'Test volume for OpenStack Taster.'
   VOLUME_SIZE = 1
   VOLUME_FILESYSTEM = 'ext4'
   VOLUME_TEST_FILE_NAME = 'info'
-  VOLUME_TEST_FILE_CONTENTS = nil # Contents would be something like 'test-vol-1 on openpower8.osuosl.bak'
+  VOLUME_TEST_FILE_CONTENTS = 'test-volume'
   TIMEOUT_INSTANCE_CREATE = 20
   TIMEOUT_VOLUME_ATTACH = 10
   TIMEOUT_VOLUME_PERSIST = 20
@@ -255,8 +255,25 @@ class OpenStackTaster
   # @param username [String] the username to use when logging into the instance
   # @return [Boolean] Whether or not the tests succeeded
   def taste_volumes(instance, username)
-    volume_info = @volume_service.create_volume(VOLUME_NAME, VOLUME_DESCRIPTION, VOLUME_SIZE)
-    volume = @volume_service.volumes.get(volume_info.body['volume']['id'])
+    volume_name = format(
+      '%s-%s-%s',
+      VOLUME_NAME_PREFIX,
+      Time.new.strftime(TIME_SLUG_FORMAT),
+      instance.id
+    )
+    begin
+      volume = @compute_service.volumes.create name: volume_name, size: VOLUME_SIZE, description: VOLUME_DESCRIPTION
+    rescue Excon::Error => e
+      puts 'Failed to create volume. check log for details.'
+      error_log(instance.logger, 'error', e.message)
+      false
+    end
+    volume.reload
+    until volume.ready?
+      error_log(instance.logger, 'info', "volume #{volume.name} not ready, waiting...", true)
+      volume.reload
+      sleep 2
+    end
 
     sleep 5
 
@@ -264,11 +281,23 @@ class OpenStackTaster
       error_log(instance.logger, 'error', "Volume '#{volume.id}' failed to attach.", true)
       return false
     else
+      mkfs_command = [
+        ['sudo parted --script /dev/sdb mklabel gpt mkpart primary 1 100%', ''],
+        ["sudo mkfs.#{VOLUME_FILESYSTEM} -Fq /dev/sdb1", '']
+      ]
       with_ssh(instance, username) do |ssh|
-        command = "sudo mkfs.#{VOLUME_FILESYSTEM} #{volume.attachments.first['device']}"
-        print command
-        result = ssh.exec!(command).chomp
-        error_log(instance.logger, 'info', "Result of mkfs on newly created volume: #{result}", true)
+        mkfs_command.each do |command, expected|
+          result = ssh.exec!(command)
+          if result != expected
+            error_log(
+              instance.logger,
+              'error',
+              "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
+              true
+            )
+            return false
+          end
+        end
       end
       mount = volume_mount_unmount?(instance, username, volume)
       detach = volume_detach?(instance, volume)
@@ -287,9 +316,10 @@ class OpenStackTaster
       error_log(instance.logger, 'error', "\nEncountered failures.", true)
       false
     end
-  ensure
     error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
-    @volume_service.delete_volume(volume.id)
+    if volume.ready?
+      volume.destroy
+    end
   end
 
   # A helper method to execute a series of commands remotely on an instance. This helper
@@ -305,7 +335,7 @@ class OpenStackTaster
         instance.addresses[@network_name].first['addr'],
         username,
         verbose: :info,
-        verify_host_key: false,
+        paranoid: false,
         logger: instance.logger,
         keys: [@ssh_private_key],
         &block
@@ -380,6 +410,7 @@ class OpenStackTaster
       ['sudo partprobe -s',                        nil],
       ["[ -d '#{mount}' ] || sudo mkdir #{mount}", ''],
       ["sudo mount #{vdev} #{mount}",              ''],
+      ["sudo sh -c 'echo -n #{file_contents} > #{mount}/#{file_name}'", ''],
       ["sudo cat #{mount}/#{file_name}",           file_contents],
       ["sudo umount #{mount}",                     '']
     ]
@@ -413,7 +444,8 @@ class OpenStackTaster
     puts 'Logging partition list and dmesg...'
 
     record_info_commands = [
-      'cat /proc/partitions',
+      'lsblk -l',
+      'lsblk -fl',
       'dmesg | tail -n 20'
     ]
 
