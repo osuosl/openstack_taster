@@ -68,7 +68,7 @@ control 'ports-1.0' do
   desc 'Tests the open ports of images used for Openstack.'
 
   # Skip these tests if we detect openstack is installed
-  only_if { not file('/etc/keystone').exist? }
+  only_if { !file('/etc/keystone').exist? }
 
   # ssh should be the only thing listening
   describe port.where { protocol =~ /tcp/ && port != 22 } do

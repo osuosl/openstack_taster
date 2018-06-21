@@ -58,7 +58,6 @@ class OpenStackTaster
       .select { |flavor|  flavor.name  == instance_flavor  }.first
     @instance_network = @network_service.networks
       .select { |network| network.name == @network_name }.first
-
   end
 
   # Taste a specified image
@@ -277,10 +276,7 @@ class OpenStackTaster
 
     sleep 5
 
-    unless volume_attach?(instance, volume)
-      error_log(instance.logger, 'error', "Volume '#{volume.id}' failed to attach.", true)
-      return false
-    else
+    if volume_attach?(instance, volume)
       mkfs_command = [
         ['sudo parted --script /dev/sdb mklabel gpt mkpart primary 1 100%', ''],
         ["sudo mkfs.#{VOLUME_FILESYSTEM} -Fq /dev/sdb1", '']
@@ -288,19 +284,21 @@ class OpenStackTaster
       with_ssh(instance, username) do |ssh|
         mkfs_command.each do |command, expected|
           result = ssh.exec!(command)
-          if result != expected
-            error_log(
-              instance.logger,
-              'error',
-              "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
-              true
-            )
-            return false
-          end
+          next unless result != expected
+          error_log(
+            instance.logger,
+            'error',
+            "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
+            true
+          )
+          return false
         end
       end
       mount = volume_mount_unmount?(instance, username, volume)
       detach = volume_detach?(instance, volume)
+    else
+      error_log(instance.logger, 'error', "Volume '#{volume.id}' failed to attach.", true)
+      return false
     end
 
     if mount && detach
@@ -317,9 +315,7 @@ class OpenStackTaster
       false
     end
     error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
-    if volume.ready?
-      volume.destroy
-    end
+    volume.destroy if volume.ready?
   end
 
   # A helper method to execute a series of commands remotely on an instance. This helper
