@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require 'optparse'
+require 'English'
 
 flavor = ''
 suites = {
@@ -13,11 +14,18 @@ settings = {}
 ARGV << '-h' if ARGV.empty?
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: openstack_taster <image_name> <ssh_user> {suite_name}  [--create-snapshot]\n" \
-                "   or: openstack_taster <image_name> <ssh_user> [--create-snapshot]\n" \
-                '   or: openstack_taster <option>'
+  opts.banner = "Usage: openstack_taster -i <image_name> -u <ssh_user> [-s suite_name]  [--create-snapshot]\n"
   opts.separator('')
   opts.separator('Available Arguments:')
+  opts.on('-i', '--image=<image_name>', 'Image name to use for the instance.') do |i|
+    settings[:image_name] = i
+  end
+  opts.on('-u', '--user=<ssh_user>', 'SSH username for logging into the instance.') do |u|
+    settings[:ssh_user] = u
+  end
+  opts.on('-s', '--suite=<suite_name>', 'Test suite(s) to use.') do |s|
+    settings[:suite] = s
+  end
   opts.on('-f', '--flavor=<flavor>', 'Set flavor for the instance.') do |f|
     flavor = f
   end
@@ -36,7 +44,16 @@ parser = OptionParser.new do |opts|
 end
 
 begin
-  params = parser.parse!
+  parser.parse!
+  mandatory = [:image_name, :ssh_user]
+  missing = mandatory.select { |p| settings[p].nil? }
+  raise OptionParser::MissingArgument, missing.join(', ') unless missing.empty?
+rescue OptionParser::MissingArgument
+  puts
+  puts 'Error: ' + $ERROR_INFO.to_s
+  puts
+  puts parser
+  exit 1
 rescue OptionParser::InvalidOption => io
   puts io.message
   puts
@@ -52,14 +69,11 @@ end
 exit if settings[:exit] # exit inside OptionParser causes problems.
 
 begin
-  case params.length
-  when 2
+  if settings[:suite].nil?
     suites.each_key { |suite| settings[suite.to_sym] = true }
-  when 3
-    raise "#{params[2]} is not a test suite!" unless suites.include? params[2]
-    settings[params[2].to_sym] = true
   else
-    raise 'Incorrect format!'
+    raise "#{settings[:suite]} is not a test suite!" unless suites.include? settings[:suite]
+    settings[settings[:suite].to_sym] = true
   end
 rescue StandardError => e
   puts e.message
@@ -68,8 +82,6 @@ rescue StandardError => e
   exit(1)
 end
 
-image_name = params[0]
-settings[:ssh_user] = params[1]
 flavor = 'm1.tiny' if flavor.empty?
 
 require 'fog/openstack'
@@ -103,4 +115,4 @@ network = Fog::Network::OpenStack.new(OPENSTACK_CREDS)
 exit OpenStackTaster.new(
   compute, volume, image, network, ENV['OS_NETWORK_REF'], flavor,
   SSH_KEYS, LOG_DIR
-).taste(image_name, settings)
+).taste(settings[:image_name], settings)
