@@ -267,11 +267,12 @@ class OpenStackTaster
       error_log(instance.logger, 'error', e.message)
       false
     end
-    volume.reload
-    until volume.ready?
-      error_log(instance.logger, 'info', "volume #{volume.name} not ready, waiting...", true)
+
+    loop do
       volume.reload
       sleep 2
+      break if volume.ready?
+      error_log(instance.logger, 'info', "volume #{volume.name} not ready, waiting...", true)
     end
 
     if volume_attach?(instance, volume)
