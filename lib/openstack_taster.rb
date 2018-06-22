@@ -274,8 +274,6 @@ class OpenStackTaster
       sleep 2
     end
 
-    sleep 5
-
     if volume_attach?(instance, volume)
       mkfs_command = [
         ['sudo parted --script /dev/sdb mklabel gpt mkpart primary 1 100%', ''],
