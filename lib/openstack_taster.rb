@@ -94,7 +94,8 @@ class OpenStackTaster
     error_log(
       instance_logger,
       'info',
-      "Tasting #{image.name} as '#{instance_name}' with username '#{settings[:ssh_user]}'.\nBuilding...",
+      "Tasting #{image.name} as '#{instance_name}' with username '#{settings[:ssh_user]}' and " \
+      "flavor '#{settings[:flavor]}'.\nBuilding...",
       true
     )
 
