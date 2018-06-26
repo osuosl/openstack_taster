@@ -46,12 +46,12 @@ begin
   parser.parse!
   mandatory = [:image_name, :ssh_user]
   missing = mandatory.select { |p| settings[p].nil? }
-  raise OptionParser::MissingArgument, missing.join(', ') unless missing.empty?
+  raise OptionParser::MissingArgument, missing.join(', ') unless missing.empty? || settings[:exit] == true
 rescue OptionParser::MissingArgument
   puts
   puts 'Error: ' + $ERROR_INFO.to_s
   puts
-  puts parser
+  puts parser unless settings[:exit] == true
   exit 1
 rescue OptionParser::InvalidOption => io
   puts io.message
