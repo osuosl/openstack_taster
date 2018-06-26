@@ -13,7 +13,7 @@ settings = {}
 ARGV << '-h' if ARGV.empty?
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: openstack_taster -i <image_name> -u <ssh_user> [-s suite_name]  [--create-snapshot]\n"
+  opts.banner = "Usage: openstack_taster -i <image_name> -u <ssh_user> [-s suite_name] [--create-snapshot]\n"
   opts.separator('')
   opts.separator('Available Arguments:')
   opts.on('-i', '--image=<image_name>', 'Image name to use for the instance.') do |i|
