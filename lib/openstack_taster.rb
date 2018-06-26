@@ -12,8 +12,12 @@ class OpenStackTaster
   INSTANCE_NAME_PREFIX = 'taster'
   INSTANCE_VOLUME_MOUNT_POINT = '/mnt/taster_volume'
 
+  VOLUME_NAME_PREFIX = 'test_volume'
+  VOLUME_DESCRIPTION = 'Test volume for OpenStack Taster.'
+  VOLUME_SIZE = 1
+  VOLUME_FILESYSTEM = 'ext4'
   VOLUME_TEST_FILE_NAME = 'info'
-  VOLUME_TEST_FILE_CONTENTS = nil # Contents would be something like 'test-vol-1 on openpower8.osuosl.bak'
+  VOLUME_TEST_FILE_CONTENTS = 'test-volume'
   TIMEOUT_INSTANCE_CREATE = 20
   TIMEOUT_VOLUME_ATTACH = 10
   TIMEOUT_VOLUME_PERSIST = 20
@@ -54,7 +58,6 @@ class OpenStackTaster
       .select { |flavor|  flavor.name  == instance_flavor  }.first
     @instance_network = @network_service.networks
       .select { |network| network.name == @network_name }.first
-
   end
 
   # Taste a specified image
@@ -251,37 +254,68 @@ class OpenStackTaster
   # @param username [String] the username to use when logging into the instance
   # @return [Boolean] Whether or not the tests succeeded
   def taste_volumes(instance, username)
-    mount_failures = @volumes.reject do |volume|
-      if volume.attachments.any?
-        error_log(instance.logger, 'info', "Volume '#{volume.name}' is already in an attached state; skipping.", true)
-        next
-      end
-
-      unless volume_attach?(instance, volume)
-        error_log(instance.logger, 'error', "Volume '#{volume.name}' failed to attach.", true)
-        next
-      end
-
-      volume_mount_unmount?(instance, username, volume)
+    volume_name = format(
+      '%s-%s-%s',
+      VOLUME_NAME_PREFIX,
+      Time.new.strftime(TIME_SLUG_FORMAT),
+      instance.id
+    )
+    begin
+      volume = @compute_service.volumes.create name: volume_name, size: VOLUME_SIZE, description: VOLUME_DESCRIPTION
+    rescue Excon::Error => e
+      puts 'Failed to create volume. check log for details.'
+      error_log(instance.logger, 'error', e.message)
+      false
     end
 
-    detach_failures = @volumes.reject do |volume|
-      volume_detach?(instance, volume)
+    loop do
+      volume.reload
+      sleep 2
+      break if volume.ready?
+      error_log(instance.logger, 'info', "volume #{volume.name} not ready, waiting...", true)
     end
 
-    if mount_failures.empty? && detach_failures.empty?
-      error_log(instance.logger, 'info', "\nEncountered 0 failures.", true)
+    if volume_attach?(instance, volume)
+      vdev = @volume_service.volumes.find_by_id(volume.id).attachments.first['device']
+      mkfs_command = [
+        ["sudo parted --script #{vdev} mklabel gpt mkpart primary 1 100%", ''],
+        ["sudo mkfs.#{VOLUME_FILESYSTEM} -Fq #{vdev}1", '']
+      ]
+      with_ssh(instance, username) do |ssh|
+        mkfs_command.each do |command, expected|
+          result = ssh.exec!(command)
+          next unless result != expected
+          error_log(
+            instance.logger,
+            'error',
+            "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
+            true
+          )
+          return false
+        end
+      end
+      mount = volume_mount_unmount?(instance, username, volume)
+      detach = volume_detach?(instance, volume)
+    else
+      error_log(instance.logger, 'error', "Volume '#{volume.id}' failed to attach.", true)
+      return false
+    end
+
+    if mount && detach
+      error_log(instance.logger, 'info', "\nVolume testing passed!.", true)
       true
     else
       error_log(
         instance.logger,
         'error',
-        "\nEncountered #{mount_failures.count} mount failures and #{detach_failures.count} detach failures.",
+        "\nVolume mounted: #{mount} detached: #{detach}.",
         true
       )
       error_log(instance.logger, 'error', "\nEncountered failures.", true)
       false
     end
+    error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
+    volume.destroy if volume.ready?
   end
 
   # A helper method to execute a series of commands remotely on an instance. This helper
@@ -372,6 +406,7 @@ class OpenStackTaster
       ['sudo partprobe -s',                        nil],
       ["[ -d '#{mount}' ] || sudo mkdir #{mount}", ''],
       ["sudo mount #{vdev} #{mount}",              ''],
+      ["sudo sh -c 'echo -n #{file_contents} > #{mount}/#{file_name}'", ''],
       ["sudo cat #{mount}/#{file_name}",           file_contents],
       ["sudo umount #{mount}",                     '']
     ]
@@ -405,7 +440,8 @@ class OpenStackTaster
     puts 'Logging partition list and dmesg...'
 
     record_info_commands = [
-      'cat /proc/partitions',
+      'lsblk -l',
+      'lsblk -fl',
       'dmesg | tail -n 20'
     ]
 
