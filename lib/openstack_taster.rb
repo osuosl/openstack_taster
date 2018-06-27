@@ -55,7 +55,7 @@ class OpenStackTaster
     @log_dir         = log_dir + "/#{@session_id}"
 
     @instance_flavor = @compute_service.flavors
-      .select { |flavor|  flavor.name  == instance_flavor  }.first
+      .select { |flavor| flavor.name == instance_flavor }.first
     @instance_network = @network_service.networks
       .select { |network| network.name == @network_name }.first
   end
@@ -94,7 +94,8 @@ class OpenStackTaster
     error_log(
       instance_logger,
       'info',
-      "Tasting #{image.name} as '#{instance_name}' with username '#{settings[:ssh_user]}'.\nBuilding...",
+      "Tasting #{image.name} as '#{instance_name}' with username '#{settings[:ssh_user]}' and " \
+      "flavor '#{settings[:flavor]}'.\nBuilding...",
       true
     )
 
