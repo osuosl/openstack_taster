@@ -303,9 +303,13 @@ class OpenStackTaster
     end
 
     if mount && detach
+      error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
+      volume.destroy if volume.ready?
       error_log(instance.logger, 'info', "\nVolume testing passed!.", true)
       true
     else
+      error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
+      volume.destroy if volume.ready?
       error_log(
         instance.logger,
         'error',
@@ -315,8 +319,6 @@ class OpenStackTaster
       error_log(instance.logger, 'error', "\nEncountered failures.", true)
       false
     end
-    error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
-    volume.destroy if volume.ready?
   end
 
   # A helper method to execute a series of commands remotely on an instance. This helper
