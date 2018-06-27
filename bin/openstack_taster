@@ -81,7 +81,7 @@ rescue StandardError => e
   exit(1)
 end
 
-settings[:flavor] = 'm1.tiny' if settings[:flavor].empty?
+settings[:flavor] = 'm1.tiny' if settings[:flavor].nil?
 
 require 'fog/openstack'
 require 'openstack_taster'
