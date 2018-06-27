@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name        = 'openstack_taster'
-  spec.version     = '1.1.0'
+  spec.version     = '1.1.1'
   spec.summary     = "Taste all of the OpenStack's basic functionality for an image"
   spec.description = 'Tastes images on an OpenStack deployment for security and basic usability.'
   spec.author      = ['OSU Open Source Lab']
