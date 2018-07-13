@@ -71,12 +71,12 @@ control 'ports-1.0' do
   only_if { !file('/etc/keystone').exist? }
 
   # ssh should be the only thing listening
-  describe port.where { protocol =~ /tcp/ && port != 22 } do
+  describe port.where { protocol =~ /tcp/ && port != 22 && address !~ /^127/ } do
     it { should_not be_listening }
   end
 
   # It's OK if dhclient is listening
-  describe port.where { protocol =~ /udp/ && port != 68 && process != 'dhclient' } do
+  describe port.where { protocol =~ /udp/ && port != 68 && process != 'dhclient' && address !~ /^127/ } do
     it { should_not be_listening }
   end
 end
