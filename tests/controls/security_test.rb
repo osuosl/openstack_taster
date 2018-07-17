@@ -76,7 +76,7 @@ control 'ports-1.0' do
   end
 
   # It's OK if dhclient is listening
-  describe port.where { protocol =~ /udp/ && port != 68 && process != 'dhclient' && address !~ /^127/ } do
+  describe port.where { protocol =~ /udp/ && port != 68 && process !~ /dhclient|ntpdate/ && address !~ /^127/ } do
     it { should_not be_listening }
   end
 end
