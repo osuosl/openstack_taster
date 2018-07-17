@@ -266,7 +266,7 @@ class OpenStackTaster
     rescue Excon::Error => e
       puts 'Failed to create volume. check log for details.'
       error_log(instance.logger, 'error', e.message)
-      false
+      return false
     end
 
     loop do
