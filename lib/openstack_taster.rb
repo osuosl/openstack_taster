@@ -279,13 +279,13 @@ class OpenStackTaster
     if volume_attach?(instance, volume)
       vdev = @volume_service.volumes.find_by_id(volume.id).attachments.first['device']
       mkfs_command = [
-        ["sudo parted --script #{vdev} mklabel gpt mkpart primary 1 100%", ''],
-        ["sudo mkfs.#{VOLUME_FILESYSTEM} -Fq #{vdev}1", '']
+        ["sudo parted --script #{vdev} mklabel gpt mkpart primary 1 100%", /^$/],
+        ["sudo mkfs.#{VOLUME_FILESYSTEM} -Fq #{vdev}1", /(^$)|(done\n)?/]
       ]
       with_ssh(instance, username) do |ssh|
         mkfs_command.each do |command, expected|
           result = ssh.exec!(command)
-          next unless result != expected
+          next unless result !~ expected
           error_log(
             instance.logger,
             'error',
