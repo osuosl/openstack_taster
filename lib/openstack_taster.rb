@@ -292,24 +292,24 @@ class OpenStackTaster
             "Failure while running '#{command}':\n\texpected '#{expected}'\n\tgot '#{result}'",
             true
           )
+          _detach = volume_detach?(instance, volume)
+          volume_delete(instance, volume)
           return false
         end
       end
       mount = volume_mount_unmount?(instance, username, volume)
       detach = volume_detach?(instance, volume)
+      volume_delete(instance, volume)
     else
       error_log(instance.logger, 'error', "Volume '#{volume.id}' failed to attach.", true)
+      volume_delete(instance, volume)
       return false
     end
 
     if mount && detach
-      error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
-      volume.destroy if volume.ready?
       error_log(instance.logger, 'info', "\nVolume testing passed!.", true)
       true
     else
-      error_log(instance.logger, 'info', "Deleting volume #{volume.id}.", true)
-      volume.destroy if volume.ready?
       error_log(
         instance.logger,
         'error',
@@ -467,5 +467,23 @@ class OpenStackTaster
     puts 'Failed to detach. check log for details.'
     error_log(instance.logger, 'error', e.message)
     false
+  end
+
+  # Delete volume
+  # @param instance [Fog::Compute::OpenStack::Server] the instance from which to detach
+  # @param volume [Fog::Volume::OpenStack::Volume] the volume to detach
+  def volume_delete(instance, volume)
+    error_log(instance.logger, 'info', "Deleting volume #{volume.name}.", true)
+    loop do
+      volume.reload
+      sleep 2
+      break if volume.ready?
+      error_log(instance.logger, 'info', "volume #{volume.name} not ready, waiting...", true)
+    end
+    volume.destroy
+    error_log(instance.logger, 'info', "Deleted volume #{volume.name}.", true)
+  rescue Excon::Error => e
+    puts 'Failed to delete. check log for details.'
+    error_log(instance.logger, 'error', e.message)
   end
 end
