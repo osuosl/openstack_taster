@@ -35,7 +35,7 @@ parser = OptionParser.new do |opts|
     puts opts
     settings[:exit] = true
   end
-  opts.on('-v', '--version', 'Print usage information.') do
+  opts.on('-v', '--version', 'Print program version.') do
     project_root = File.expand_path(File.dirname(File.dirname(__FILE__)))
     spec_path = File.join(project_root, 'openstack_taster.gemspec')
     
