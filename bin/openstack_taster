@@ -87,14 +87,15 @@ require 'fog/openstack'
 require 'openstack_taster'
 
 auth_url = String.new(ENV['OS_AUTH_URL'])
-auth_url << '/tokens' unless auth_url.end_with?('tokens')
 auth_url.freeze
 
 OPENSTACK_CREDS = {
-  openstack_auth_url: auth_url,
-  openstack_username: ENV['OS_USERNAME'],
+  openstack_api_key:  ENV['OS_PASSWORD'],
+  openstack_auth_url: "#{auth_url}/auth/tokens",
+  openstack_domain_name: ENV['OS_USER_DOMAIN_NAME'],
+  openstack_project_name: ENV['OS_PROJECT_NAME'],
   openstack_tenant:   ENV['OS_TENANT_NAME'],
-  openstack_api_key:  ENV['OS_PASSWORD']
+  openstack_username: ENV['OS_USERNAME'],
 }.freeze
 
 SSH_KEYS = {
