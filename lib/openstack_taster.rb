@@ -334,7 +334,7 @@ class OpenStackTaster
         instance.addresses[@network_name].first['addr'],
         username,
         verbose: :info,
-        paranoid: false,
+        verify_host_key: false,
         logger: instance.logger,
         keys: [@ssh_private_key],
         &block
