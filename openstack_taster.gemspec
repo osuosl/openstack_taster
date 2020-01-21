@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.homepage    = 'https://github.com/osuosl/openstack_taster'
   spec.add_runtime_dependency 'inspec-core', '< 4.0', '>= 3.0'
   spec.add_runtime_dependency 'train'
-  spec.add_runtime_dependency 'fog-openstack', '~> 0.1.19'
+  spec.add_runtime_dependency 'fog-openstack', '~> 1.0.10'
   spec.add_runtime_dependency 'net-ssh', '< 5.0', '>= 4.0.0'
   spec.add_runtime_dependency 'json', '~> 1.8', '>= 1.8.6'
   spec.executables = 'openstack_taster'
